@@ -211,7 +211,7 @@ const CATS={
   note:{label:'Note',code:'NOTE',c:'--c-note'}
 };
 const COUNT={ext:'Empruntée',hatch:'Empruntée',quest:'Visité',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',pvp:'Croisé',note:'Vu'};
-const W=1000; let H=1000;
+let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -285,7 +285,7 @@ function importData(file){
 
 /* ---------- carte exemple générée ---------- */
 function placeholder(seed){
-  const cv=document.createElement('canvas');cv.width=W;cv.height=1000;const g=cv.getContext('2d');
+  const cv=document.createElement('canvas');cv.width=1000;cv.height=1000;const g=cv.getContext('2d');
   const f=(x,y)=>Math.sin(x*.011+seed)*Math.cos(y*.009-seed*.7)+.6*Math.sin((x+y)*.006+seed*2)+.35*Math.cos(x*.023-y*.017+seed);
   const img=g.createImageData(W,1000),d=img.data;
   for(let y=0;y<1000;y++)for(let x=0;x<W;x++){const v=f(x,y),b=(v*5)%1;const i=(y*W+x)*4;const line=Math.abs(b)<.05;const s=30+v*4;
@@ -303,15 +303,15 @@ function placeholder(seed){
 const stage=document.getElementById('stage'),world=document.getElementById('world');
 let view={x:0,y:0,s:1};
 function apply(){world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;world.style.setProperty('--inv',(1/view.s).toFixed(4));}
-function fit(){const r=stage.getBoundingClientRect();const s=Math.min(r.width/W,r.height/H)*.94;view.s=s;view.x=(r.width-W*s)/2;view.y=(r.height-H*s)/2;apply();}
-function zoomAt(px,py,f){const ns=Math.min(8,Math.max(.25,view.s*f));f=ns/view.s;view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s=ns;apply();}
+function fit(){const r=stage.getBoundingClientRect();const s=Math.min(r.width/W,r.height/H)*.94;fitS=s;view.s=s;view.x=(r.width-W*s)/2;view.y=(r.height-H*s)/2;apply();}
+function zoomAt(px,py,f){const ns=Math.min(Math.max(4,fitS*8),Math.max(fitS*.5,view.s*f));f=ns/view.s;view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s=ns;apply();}
 
 function renderWorld(){
   world.innerHTML='';
   const src=images[cur];
   document.getElementById('emptyMap').hidden=!!src;
-  if(src){const im=new Image();im.onload=()=>{H=Math.round(W*im.naturalHeight/im.naturalWidth);world.style.width=W+'px';world.style.height=H+'px';renderPins();fit();};im.src=src;im.alt='';world.appendChild(im);}
-  else{H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(ALL.indexOf(cur)*1.7+.4));renderPins();fit();}
+  if(src){const im=new Image();im.onload=()=>{W=im.naturalWidth;H=im.naturalHeight;world.style.width=W+'px';world.style.height=H+'px';renderPins();fit();};im.src=src;im.alt='';world.appendChild(im);}
+  else{W=1000;H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(ALL.indexOf(cur)*1.7+.4));renderPins();fit();}
 }
 function renderPins(){
   world.querySelectorAll('.pin').forEach(p=>p.remove());
@@ -462,7 +462,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v6';
+const APP_VERSION='v7';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
