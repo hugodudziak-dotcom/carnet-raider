@@ -52,7 +52,9 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .stage.placing{cursor:crosshair}
 .world{position:absolute;left:0;top:0;transform-origin:0 0}
 .world img,.world canvas{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none;pointer-events:none}
-.pin{position:absolute;transform:translate(-50%,-50%) scale(var(--inv,1));background:none;border:0;padding:6px;display:flex;align-items:center;gap:6px}
+.pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pins .pin{pointer-events:auto}
+.pin{position:absolute;transform:translate(-50%,-50%);background:none;border:0;padding:6px;display:flex;align-items:center;gap:6px}
 .pin .dot{width:16px;height:16px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(236,235,230,.7);flex:none}
 .pin .tag{display:none;font-family:var(--f-body);font-weight:600;font-size:12px;padding:3px 8px;background:var(--ink);color:var(--bg);white-space:nowrap;position:absolute;left:30px}
 .pin.sel .dot{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ink)}
@@ -145,6 +147,7 @@ textarea{min-height:86px;resize:vertical;line-height:1.45}
   <div class="main">
     <div class="stage" id="stage">
       <div class="world" id="world"></div>
+      <div class="pins" id="pins"></div>
       <div class="coords" id="coords">X — · Y —</div>
       <div class="levels" id="levels" role="group" aria-label="Niveau" hidden></div>
       <div class="emptymap" id="emptyMap" hidden><p>Pas encore d’image pour cette carte</p><label class="btn primary" for="imgInput">Importer la capture</label><span>Depuis Photos ou Fichiers · idéalement 3000 à 4000 px de large</span></div>
@@ -302,7 +305,9 @@ function placeholder(seed){
 /* ---------- vue ---------- */
 const stage=document.getElementById('stage'),world=document.getElementById('world');
 let view={x:0,y:0,s:1};
-function apply(){world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;world.style.setProperty('--inv',(1/view.s).toFixed(4));}
+const pinsEl=document.getElementById('pins');
+function placePins(){pinsEl.querySelectorAll('.pin').forEach(p=>{p.style.left=(view.x+p._x*W*view.s)+'px';p.style.top=(view.y+p._y*H*view.s)+'px';});}
+function apply(){world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;placePins();}
 function fit(){const r=stage.getBoundingClientRect();const s=Math.min(r.width/W,r.height/H)*.94;fitS=s;view.s=s;view.x=(r.width-W*s)/2;view.y=(r.height-H*s)/2;apply();}
 function zoomAt(px,py,f){const ns=Math.min(Math.max(4,fitS*8),Math.max(fitS*.5,view.s*f));f=ns/view.s;view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s=ns;apply();}
 
@@ -314,17 +319,18 @@ function renderWorld(){
   else{W=1000;H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(ALL.indexOf(cur)*1.7+.4));renderPins();fit();}
 }
 function renderPins(){
-  world.querySelectorAll('.pin').forEach(p=>p.remove());
+  pinsEl.querySelectorAll('.pin').forEach(p=>p.remove());
   store[cur].markers.forEach(m=>{
     const c=CATS[m.cat];const b=document.createElement('button');
-    b.className='pin'+(m.id===sel?' sel':'')+(m.done&&m.cat==='quest'?' done':'');b.style.left=m.x*W+'px';b.style.top=m.y*H+'px';b.style.setProperty('--c',`var(${c.c})`);
+    b.className='pin'+(m.id===sel?' sel':'')+(m.done&&m.cat==='quest'?' done':'');b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
     b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||'sans nom'}`);
     const t=document.createElement('span');t.className='tag';t.textContent=m.title||c.label;
     b.append(Object.assign(document.createElement('span'),{className:'dot'}),t);
     b.addEventListener('pointerdown',e=>e.stopPropagation());
     b.addEventListener('click',e=>{e.stopPropagation();select(m.id);});
-    world.appendChild(b);
+    pinsEl.appendChild(b);
   });
+  placePins();
 }
 
 /* ---------- gestes ---------- */
@@ -462,7 +468,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v7';
+const APP_VERSION='v8';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
