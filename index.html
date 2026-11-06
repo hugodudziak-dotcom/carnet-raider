@@ -233,9 +233,8 @@ const CATS={
   note:{label:'Note',code:'NOTE',c:'--c-note'}
 };
 const SUBS={
-  loot:['Caisse de terrain','Caisse d’armes','Caisse de munitions','Sac médical','Panier','Autre conteneur'],
   depot:['Dépôt de terrain','Station de ravitaillement'],
-  res:['Plantes','Composants','Électronique','Ferraille'],
+  res:['Caisse de terrain','Caisse d’armes','Caisse de munitions','Sac médical','Panier','Autre conteneur','Plantes','Composants','Électronique','Ferraille'],
   arc:['Volant','Au sol','Tourelle']
 };
 const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
