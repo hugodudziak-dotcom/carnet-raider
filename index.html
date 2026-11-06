@@ -311,6 +311,24 @@ const stage=document.getElementById('stage'),world=document.getElementById('worl
 let view={x:0,y:0,s:1};
 const pinsEl=document.getElementById('pins');
 function placePins(){pinsEl.querySelectorAll('.pin').forEach(p=>{p.style.left=(view.x+p._x*W*view.s)+'px';p.style.top=(view.y+p._y*H*view.s)+'px';});}
+/* centre un repère dans la partie de la carte encore visible (clavier compris) */
+function visibleCenter(){
+  const r=stage.getBoundingClientRect(),vv=window.visualViewport;
+  const vTop=vv?vv.offsetTop:0,vBot=vv?vv.offsetTop+vv.height:innerHeight;
+  const top=Math.max(r.top,vTop),bottom=Math.min(r.bottom,vBot);
+  return {x:r.width/2,y:(bottom>top+40?(top+bottom)/2:r.top+r.height/2)-r.top};
+}
+let anim=null;
+function centerOn(m){
+  if(!m)return;const c=visibleCenter();
+  const tx=c.x-m.x*W*view.s,ty=c.y-m.y*H*view.s,sx=view.x,sy=view.y,t0=performance.now();
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;cancelAnimationFrame(anim);
+  const step=t=>{const k=reduce?1:Math.min(1,(t-t0)/220),e=1-Math.pow(1-k,3);view.x=sx+(tx-sx)*e;view.y=sy+(ty-sy)*e;apply();if(k<1)anim=requestAnimationFrame(step);};
+  anim=requestAnimationFrame(step);
+}
+function editing(){const a=document.activeElement;return a&&document.getElementById('editor').contains(a)&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA');}
+document.addEventListener('focusin',()=>{if(editing())setTimeout(()=>centerOn(curM()),350);});
+if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(editing())centerOn(curM());});
 function apply(){world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;placePins();}
 function fit(){const r=stage.getBoundingClientRect();const s=Math.min(r.width/W,r.height/H)*.94;fitS=s;view.s=s;view.x=(r.width-W*s)/2;view.y=(r.height-H*s)/2;apply();}
 function zoomAt(px,py,f){const ns=Math.min(Math.max(4,fitS*8),Math.max(fitS*.5,view.s*f));f=ns/view.s;view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s=ns;apply();}
@@ -414,7 +432,7 @@ function renderPanel(fromSync){
   vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',`var(${c.c})`);
     const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||'Sans nom'});
     r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:'×'+m.visits+' · '+fmt(m.found)}));
-    r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);const s=stage.getBoundingClientRect();view.x=s.width/2-m.x*W*view.s;view.y=s.height/2-m.y*H*view.s;apply();};ls.appendChild(r);});
+    r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);centerOn(curM());};ls.appendChild(r);});
   
   renderExport();renderLevels();
   // onglets
@@ -468,7 +486,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v9';
+const APP_VERSION='v10';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
