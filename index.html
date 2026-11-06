@@ -179,7 +179,7 @@ textarea{min-height:86px;resize:vertical;line-height:1.45}
         <input type="text" class="search" id="search" placeholder="Rechercher sur cette carte" autocomplete="off">
         <div class="list" id="list"></div>
       </div>
-      <div class="foot"><span><span id="saveState">—</span><br><span id="lastExp"></span></span><span class="io"><button class="linkbtn" id="expBtn">Exporter</button> · <label class="linkbtn" for="impInput" style="cursor:pointer">Importer</label><input type="file" id="impInput" accept="application/json,.json" hidden></span></div>
+      <div class="foot"><span><span id="saveState">—</span><br><span id="lastExp"></span><br><span id="appVer"></span></span><span class="io"><button class="linkbtn" id="expBtn">Exporter</button> · <label class="linkbtn" for="impInput" style="cursor:pointer">Importer</label><input type="file" id="impInput" accept="application/json,.json" hidden></span></div>
     </aside>
   </div>
 </div>
@@ -462,7 +462,12 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+const APP_VERSION='v6';
+document.getElementById('appVer').textContent='Version '+APP_VERSION;
+if('serviceWorker' in navigator)addEventListener('load',()=>{
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
+  let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!reloaded){reloaded=true;location.reload();}});
+});
 addEventListener('resize',fit);
 </script>
 </body>
