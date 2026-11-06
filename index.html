@@ -373,7 +373,7 @@ function renderPins(){
   store[cur].markers.forEach(m=>{
     const c=CATS[m.cat];const b=document.createElement('button');
     b.className='pin'+(m.id===sel?' sel':'')+(m.done&&m.cat==='quest'?' done':'');b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
-    b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||'sans nom'}`);
+    b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||subOf(m)||c.label}`);
     const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||c.label;
     b.append(Object.assign(document.createElement('span'),{className:'dot'}),t);
     b.addEventListener('pointerdown',e=>e.stopPropagation());
@@ -457,7 +457,7 @@ function renderPanel(fromSync){
   vis.sort((a,b)=>(a.done&&a.cat==='quest'?1:0)-(b.done&&b.cat==='quest'?1:0)||b.found.localeCompare(a.found));
   if(!vis.length){ls.innerHTML=q?'<p class="empty">Aucun repère ne correspond.</p>':'<p class="empty">Aucun repère ici pour l’instant. Touche « Poser un repère » puis la carte pour noter ta première trouvaille.</p>';}
   vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',`var(${c.c})`);
-    const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||subOf(m)||'Sans nom'});
+    const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||subOf(m)||c.label});
     if(m.title&&subOf(m))t.append(Object.assign(document.createElement('span'),{className:'mp',textContent:subOf(m)}));
     r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:'×'+m.visits+' · '+fmt(m.found)}));
     r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);centerOn(curM());};ls.appendChild(r);});
@@ -518,7 +518,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v14';
+const APP_VERSION='v15';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
