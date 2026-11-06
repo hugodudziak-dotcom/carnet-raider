@@ -83,6 +83,10 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .toggle[aria-pressed="true"]{background:var(--c-ext);border-color:var(--c-ext);color:var(--bg)}
 .search{width:100%}
 .foot .warn{color:var(--c-loot)}
+.levels{position:absolute;top:10px;right:10px;display:flex;background:rgba(26,29,33,.94);border:1px solid var(--line);z-index:2}
+.levels button{background:none;border:0;min-height:40px;padding:0 14px;color:var(--dim);font-family:var(--f-head);font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.levels button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.levels .n{font-family:var(--f-mono);font-weight:400;font-size:10px;opacity:.7}
 .coords{position:absolute;top:12px;left:12px;font-family:var(--f-mono);font-size:10.5px;color:var(--dim);pointer-events:none;font-variant-numeric:tabular-nums}
 
 aside{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow-y:auto}
@@ -142,6 +146,7 @@ textarea{min-height:86px;resize:vertical;line-height:1.45}
     <div class="stage" id="stage">
       <div class="world" id="world"></div>
       <div class="coords" id="coords">X — · Y —</div>
+      <div class="levels" id="levels" role="group" aria-label="Niveau" hidden></div>
       <div class="emptymap" id="emptyMap" hidden><p>Pas encore d’image pour cette carte</p><label class="btn primary" for="imgInput">Importer la capture</label><span>Depuis Photos ou Fichiers · idéalement 3000 à 4000 px de large</span></div>
       <div class="hint" id="hint" hidden>TOUCHE LA CARTE POUR POSER LE REPÈRE</div>
       <div class="toast" id="toast" hidden><span id="toastText"></span><button id="undoBtn">Annuler</button></div>
@@ -184,10 +189,13 @@ const MAPS=[
   {id:'dam',name:'Dam',fr:'Le Barrage'},
   {id:'buried',name:'Buried City',fr:'La Ville enfouie'},
   {id:'spaceport',name:'Spaceport',fr:'Le Port spatial'},
-  {id:'bluegate',name:'Blue Gate',fr:'La Porte bleue'},
+  {id:'bluegate',name:'Blue Gate',fr:'La Porte bleue',levels:[{id:'bluegate',name:'Surface'},{id:'bluegate-ss',name:'Sous-sol'}]},
   {id:'stella',name:'Stella Montis',fr:'Stella Montis'},
   {id:'riven',name:'Riven Tides',fr:'Riven Tides'}
 ];
+const ALL=[];MAPS.forEach(m=>{ALL.push(m.id);(m.levels||[]).forEach(l=>{if(l.id!==m.id)ALL.push(l.id);});});
+const parentOf=id=>MAPS.find(m=>m.id===id||(m.levels||[]).some(l=>l.id===id));
+const levelOf=id=>{const m=parentOf(id);return m&&m.levels?m.levels.find(l=>l.id===id):null;};
 const CATS={
   hatch:{label:'Trappe raider',code:'TRP',c:'--c-hatch'},
   quest:{label:'Quête',code:'QST',c:'--c-quest'},
@@ -209,7 +217,7 @@ const fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
 const uid=()=>Math.random().toString(36).slice(2,9);
 
 let store={};
-MAPS.forEach(m=>store[m.id]={markers:[]});
+ALL.forEach(id=>store[id]={markers:[]});
 let cur='dam', sel=null, placing=false, filters=Object.fromEntries(Object.keys(CATS).map(k=>[k,true]));
 let images={}; let armed=false; let quick=false, query='', hideDone=false, lastExport=null, undo=null, toastT=null;
 let lastCat='quest';try{lastCat=localStorage.getItem('carnet-lastcat')||'quest';}catch(e){}
@@ -241,7 +249,7 @@ async function boot(){
   let data=null;
   try{data=(await all('kv')).markers||null;}catch(e){}
   if(!data){try{data=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
-  if(data)MAPS.forEach(m=>{if(data[m.id])store[m.id].markers=(data[m.id].markers||[]).filter(x=>!x.ex);});
+  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex);});
   try{images=await all('maps');}catch(e){}
   try{lastExport=(await all('kv')).lastExport||null;}catch(e){}
   setSave('Enregistré sur l’iPad');
@@ -257,7 +265,7 @@ async function exportData(){
 }
 function markExported(){lastExport=today();put('kv','lastExport',lastExport).catch(()=>{});setSave('Sauvegarde exportée');renderPanel();}
 function renderExport(){
-  const el=document.getElementById('lastExp');const total=MAPS.reduce((a,m)=>a+store[m.id].markers.length,0);
+  const el=document.getElementById('lastExp');const total=ALL.reduce((a,id)=>a+store[id].markers.length,0);
   if(!total){el.textContent='';el.className='';return;}
   if(!lastExport){el.textContent='Jamais exporté';el.className='warn';return;}
   const d=Math.round((new Date(today())-new Date(lastExport))/864e5);
@@ -267,7 +275,7 @@ function importData(file){
   const rd=new FileReader();
   rd.onload=async()=>{
     try{const d=JSON.parse(rd.result);if(d.app!=='carnet-raider')throw 0;
-      MAPS.forEach(m=>store[m.id]={markers:(d.store&&d.store[m.id]&&d.store[m.id].markers)||[]});
+      ALL.forEach(id=>store[id]={markers:(d.store&&d.store[id]&&d.store[id].markers)||[]});
       images=d.images||{};for(const k in images){try{await put('maps',k,images[k]);}catch(e){}}
       sel=null;saveAll();renderWorld();renderPanel();setSave('Sauvegarde importée');}
     catch(e){setSave('Ce fichier n’est pas une sauvegarde du carnet');}
@@ -303,7 +311,7 @@ function renderWorld(){
   const src=images[cur];
   document.getElementById('emptyMap').hidden=!!src;
   if(src){const im=new Image();im.onload=()=>{H=Math.round(W*im.naturalHeight/im.naturalWidth);world.style.width=W+'px';world.style.height=H+'px';renderPins();fit();};im.src=src;im.alt='';world.appendChild(im);}
-  else{H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(MAPS.findIndex(m=>m.id===cur)*1.7+.4));renderPins();fit();}
+  else{H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(ALL.indexOf(cur)*1.7+.4));renderPins();fit();}
 }
 function renderPins(){
   world.querySelectorAll('.pin').forEach(p=>p.remove());
@@ -321,7 +329,7 @@ function renderPins(){
 
 /* ---------- gestes ---------- */
 const pts=new Map();let moved=0;
-stage.addEventListener('pointerdown',e=>{if(e.target.closest('.hud'))return;stage.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;});
+stage.addEventListener('pointerdown',e=>{if(e.target.closest('.hud,.levels,.emptymap,.toast'))return;stage.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;});
 stage.addEventListener('pointermove',e=>{
   const r=stage.getBoundingClientRect();
   const wx=((e.clientX-r.left-view.x)/view.s)/W,wy=((e.clientY-r.top-view.y)/view.s)/H;
@@ -372,9 +380,9 @@ function curM(){return store[cur].markers.find(m=>m.id===sel);}
 function select(id,focus){sel=id;armed=false;renderPins();renderPanel();if(focus){const t=document.getElementById('f-title');if(t)t.focus();}}
 
 function renderPanel(fromSync){
-  const map=MAPS.find(m=>m.id===cur),ms=store[cur].markers;
+  const map=parentOf(cur),lv=levelOf(cur),ms=store[cur].markers;
   document.getElementById('mapName').innerHTML='';
-  document.getElementById('mapName').append(map.name,Object.assign(document.createElement('em'),{textContent:map.fr.toUpperCase()}));
+  document.getElementById('mapName').append(map.name,Object.assign(document.createElement('em'),{textContent:(map.fr+(lv?' · '+lv.name:'')).toUpperCase()}));
   document.getElementById('stCount').textContent=ms.length;
   document.getElementById('stVisits').textContent=ms.reduce((a,m)=>a+(m.visits||0),0);
   document.getElementById('stLast').textContent=ms.length?fmt(ms.map(m=>m.found).sort().pop()):'—';
@@ -401,9 +409,9 @@ function renderPanel(fromSync){
   // filtre « fait »
   const hd=document.createElement('button');hd.className='chip';hd.style.setProperty('--c','var(--dim)');hd.setAttribute('aria-pressed',!hideDone);
   hd.innerHTML='<i></i>';hd.append('Quêtes terminées');hd.onclick=()=>{hideDone=!hideDone;renderPins();renderPanel();};fl.appendChild(hd);
-  renderExport();
+  renderExport();renderLevels();
   // onglets
-  document.querySelectorAll('.tab').forEach(t=>{t.querySelector('.n').textContent=store[t.dataset.id].markers.length||'';});
+  document.querySelectorAll('.tab').forEach(t=>{const pm=MAPS.find(x=>x.id===t.dataset.id);const n=(pm.levels?pm.levels.map(l=>l.id):[pm.id]).reduce((a,id)=>a+store[id].markers.length,0);t.querySelector('.n').textContent=n||'';});
   const ed=document.getElementById('editor');if(fromSync&&ed.contains(document.activeElement)&&curM())return;
   renderEditor();
 }
@@ -440,9 +448,15 @@ function renderEditor(){
 const tabs=document.getElementById('tabs');
 MAPS.forEach(m=>{const b=document.createElement('button');b.className='tab';b.role='tab';b.dataset.id=m.id;b.textContent=m.name;b.append(Object.assign(document.createElement('span'),{className:'n'}));
   b.onclick=()=>switchMap(m.id);tabs.appendChild(b);});
-function switchMap(id){cur=id;sel=null;query='';document.getElementById('search').value='';setPlacing(false);tabs.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.id===id));renderWorld();renderPanel();}
+function switchMap(id){cur=id;sel=null;query='';document.getElementById('search').value='';setPlacing(false);tabs.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.id===parentOf(id).id));renderLevels();renderWorld();renderPanel();}
 document.getElementById('search').addEventListener('input',e=>{query=e.target.value;renderPanel();});
 tabs.firstChild.setAttribute('aria-selected','true');
+function renderLevels(){
+  const el=document.getElementById('levels'),m=parentOf(cur);el.innerHTML='';el.hidden=!m.levels;if(!m.levels)return;
+  m.levels.forEach(l=>{const b=document.createElement('button');b.textContent=l.name;b.setAttribute('aria-pressed',l.id===cur);
+    const n=store[l.id].markers.length;if(n)b.append(Object.assign(document.createElement('span'),{className:'n',textContent:n}));
+    b.onclick=()=>{if(l.id!==cur)switchMap(l.id);};el.appendChild(b);});
+}
 
 document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
