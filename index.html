@@ -81,6 +81,8 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .pin.done .dot{background:var(--panel-2);box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(236,235,230,.35)}
 .pin.done .dot::after{content:"";display:block;width:6px;height:9px;border:solid var(--c);border-width:0 2px 2px 0;transform:translate(5px,1px) rotate(45deg)}
 .row.done .t{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--faint)}
+.chip.sub{font-size:12.5px;min-height:30px}
+body.kb .e-sub{order:3}body.kb .chip.sub{min-height:26px;font-size:11.5px;padding:0 7px}
 .row .mp{font-family:var(--f-mono);font-size:10px;color:var(--faint);margin-left:8px;letter-spacing:.06em;text-transform:uppercase}
 .toast{position:absolute;left:50%;bottom:calc(68px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);display:flex;align-items:center;gap:14px;padding:6px 6px 6px 14px;font-weight:600;font-size:14px;white-space:nowrap}
 .toast button{background:var(--bg);color:var(--ink);border:0;min-height:36px;padding:0 12px;font-family:var(--f-head);font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:11px}
@@ -230,6 +232,13 @@ const CATS={
   ext:{label:'Extraction',code:'EXT',c:'--c-ext'},
   note:{label:'Note',code:'NOTE',c:'--c-note'}
 };
+const SUBS={
+  loot:['Caisse de terrain','Caisse d’armes','Caisse de munitions','Sac médical','Panier','Autre conteneur'],
+  depot:['Dépôt de terrain','Station de ravitaillement'],
+  res:['Plantes','Composants','Électronique','Ferraille'],
+  arc:['Volant','Au sol','Tourelle']
+};
+const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
 const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',pvp:'Croisé',note:'Vu'};
 let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
@@ -366,7 +375,7 @@ function renderPins(){
     const c=CATS[m.cat];const b=document.createElement('button');
     b.className='pin'+(m.id===sel?' sel':'')+(m.done&&m.cat==='quest'?' done':'');b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
     b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||'sans nom'}`);
-    const t=document.createElement('span');t.className='tag';t.textContent=m.title||c.label;
+    const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||c.label;
     b.append(Object.assign(document.createElement('span'),{className:'dot'}),t);
     b.addEventListener('pointerdown',e=>e.stopPropagation());
     b.addEventListener('click',e=>{e.stopPropagation();select(m.id);});
@@ -444,12 +453,13 @@ function renderPanel(fromSync){
   const ls=document.getElementById('list');ls.innerHTML='';
   const q=query.trim().toLowerCase();
   let vis;
-  if(q){vis=ms.filter(m=>(m.title+' '+m.note+' '+CATS[m.cat].label).toLowerCase().includes(q)).map(m=>({...m,_map:cur}));}
+  if(q){vis=ms.filter(m=>(m.title+' '+m.note+' '+CATS[m.cat].label+' '+(m.sub||'')).toLowerCase().includes(q)).map(m=>({...m,_map:cur}));}
   else vis=ms.filter(m=>filters[m.cat]&&!(hideDone&&m.done&&m.cat==='quest')).map(m=>({...m,_map:cur}));
   vis.sort((a,b)=>(a.done&&a.cat==='quest'?1:0)-(b.done&&b.cat==='quest'?1:0)||b.found.localeCompare(a.found));
   if(!vis.length){ls.innerHTML=q?'<p class="empty">Aucun repère ne correspond.</p>':'<p class="empty">Aucun repère ici pour l’instant. Touche « Poser un repère » puis la carte pour noter ta première trouvaille.</p>';}
   vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',`var(${c.c})`);
-    const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||'Sans nom'});
+    const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||subOf(m)||'Sans nom'});
+    if(m.title&&subOf(m))t.append(Object.assign(document.createElement('span'),{className:'mp',textContent:subOf(m)}));
     r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:'×'+m.visits+' · '+fmt(m.found)}));
     r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);centerOn(curM());};ls.appendChild(r);});
   
@@ -464,6 +474,7 @@ function renderEditor(){
   ed.innerHTML=`<div class="eyebrow">Repère sélectionné</div>
   <label class="f e-title">Nom<input type="text" id="f-title" placeholder="Ex : coffre derrière le hangar"></label>
   <div class="chips e-cats" id="f-cats"></div>
+  ${SUBS[m.cat]?`<label class="f e-sub">Type<div class="chips" id="f-subs"></div></label>`:''}
   <label class="f e-danger">Danger<div class="danger" id="f-danger"></div></label>
   <label class="f e-note">Notes<textarea id="f-note" placeholder="Ce que tu as trouvé, comment y accéder, à quelle heure…"></textarea></label>
   <div class="counter e-count"><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
@@ -475,7 +486,10 @@ function renderEditor(){
   no.oninput=()=>{m.note=no.value;persist(m);};
   const cs=ed.querySelector('#f-cats');
   Object.entries(CATS).forEach(([k,c])=>{const b=document.createElement('button');b.className='chip pick';b.style.setProperty('--c',`var(${c.c})`);b.setAttribute('aria-pressed',m.cat===k);b.innerHTML='<i></i>';b.append(c.label);
-    b.onclick=()=>{m.cat=k;rememberCat(k);persist(m);renderPins();renderPanel();};cs.appendChild(b);});
+    b.onclick=()=>{if(m.cat!==k)m.sub='';m.cat=k;rememberCat(k);persist(m);renderPins();renderPanel();};cs.appendChild(b);});
+  const ss=ed.querySelector('#f-subs');
+  if(ss)SUBS[m.cat].forEach(t=>{const b=document.createElement('button');b.type='button';b.className='chip pick sub';b.style.setProperty('--c',`var(${CATS[m.cat].c})`);
+    b.setAttribute('aria-pressed',m.sub===t);b.textContent=t;b.onclick=()=>{m.sub=m.sub===t?'':t;persist(m);renderPins();renderPanel();};ss.appendChild(b);});
   const fd=ed.querySelector('#f-done');if(fd)fd.onclick=()=>{m.done=!m.done;persist(m);renderPins();renderPanel();};
   const dg=ed.querySelector('#f-danger');['FAIBLE','MOYEN','ÉLEVÉ'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
     b.onclick=()=>{m.danger=i+1;persist(m);renderEditor();};dg.appendChild(b);});
@@ -505,7 +519,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v13';
+const APP_VERSION='v14';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
