@@ -83,6 +83,16 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .row.done .t{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--faint)}
 .chip.sub{font-size:12.5px;min-height:30px}
 body.kb .e-sub{order:3}body.kb .chip.sub{min-height:26px;font-size:11.5px;padding:0 7px}
+.rate{display:flex;flex-direction:column;gap:6px}
+.rate-head{display:flex;justify-content:space-between;align-items:baseline}
+.rate-head b{font-family:var(--f-mono);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
+.rate-row{display:grid;grid-template-columns:1fr auto 3ch auto;gap:8px;align-items:center;font-size:14px}
+.rate-row b{font-family:var(--f-mono);font-weight:500;text-align:center;font-variant-numeric:tabular-nums}
+.rate .btn.ok{border-color:var(--c-ext)}.rate .btn.ko{border-color:var(--c-arc)}
+body.kb .rate .btn.sq{width:32px;min-height:32px}
+.pin.r-mid .dot{opacity:.7}
+.pin.r-low .dot{opacity:.35;box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(236,235,230,.35)}
+.pin.sel .dot{opacity:1}
 .row .mp{font-family:var(--f-mono);font-size:10px;color:var(--faint);margin-left:8px;letter-spacing:.06em;text-transform:uppercase}
 .toast{position:absolute;left:50%;bottom:calc(68px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);display:flex;align-items:center;gap:14px;padding:6px 6px 6px 14px;font-weight:600;font-size:14px;white-space:nowrap}
 .toast button{background:var(--bg);color:var(--ink);border:0;min-height:36px;padding:0 12px;font-family:var(--f-head);font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:11px}
@@ -238,6 +248,10 @@ const SUBS={
   arc:['Volant','Au sol','Tourelle']
 };
 const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
+// catégories suivies en taux de réussite (présent / absent)
+const RATE={res:['Présent','Absent'],loot:['Présent','Absent'],arc:['Croisé','Pas croisé'],heavy:['Croisé','Pas croisé'],pvp:['Croisé','Pas croisé']};
+function rateOf(m){const h=m.hit||0,n=m.miss||0,t=h+n;return t?{h,n,t,p:Math.round(h/t*100)}:null;}
+function rateClass(m){const r=rateOf(m);if(!RATE[m.cat]||!r||r.t<2)return '';return r.p>=70?' r-high':r.p>=30?' r-mid':' r-low';}
 const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',pvp:'Croisé',note:'Vu'};
 let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
@@ -278,7 +292,7 @@ async function boot(){
   let data=null;
   try{data=(await all('kv')).markers||null;}catch(e){}
   if(!data){try{data=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
-  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>CATS[x.cat]?x:{...x,cat:'note'});});
+  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>CATS[x.cat]?x:{...x,cat:'note'}).map(x=>RATE[x.cat]&&x.hit==null?{...x,hit:x.visits||0,miss:0}:x);});
   try{images=await all('maps');}catch(e){}
   try{lastExport=(await all('kv')).lastExport||null;}catch(e){}
   setSave('Enregistré sur l’iPad');
@@ -372,7 +386,7 @@ function renderPins(){
   pinsEl.querySelectorAll('.pin').forEach(p=>p.remove());
   store[cur].markers.forEach(m=>{
     const c=CATS[m.cat];const b=document.createElement('button');
-    b.className='pin'+(m.id===sel?' sel':'')+(m.done&&m.cat==='quest'?' done':'');b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
+    b.className='pin'+(m.id===sel?' sel':'')+rateClass(m);b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
     b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||subOf(m)||c.label}`);
     const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||c.label;
     b.append(Object.assign(document.createElement('span'),{className:'dot'}),t);
@@ -423,7 +437,7 @@ document.getElementById('imgInput').addEventListener('change',e=>{const f=e.targ
 
 /* ---------- données ---------- */
 function addMarker(x,y){
-  const m={id:uid(),x,y,cat:lastCat,title:'',note:'',danger:1,visits:1,found:today(),done:false};
+  const m={id:uid(),x,y,cat:lastCat,title:'',note:'',danger:1,visits:1,hit:1,miss:0,found:today(),done:false};
   store[cur].markers.push(m);persist(m);
   setPlacing(false);select(m.id,true);
 }
@@ -459,7 +473,7 @@ function renderPanel(fromSync){
   vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',`var(${c.c})`);
     const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||subOf(m)||c.label});
     if(m.title&&subOf(m))t.append(Object.assign(document.createElement('span'),{className:'mp',textContent:subOf(m)}));
-    r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:'×'+m.visits+' · '+fmt(m.found)}));
+    r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:(RATE[m.cat]&&rateOf(m)?rateOf(m).h+'/'+rateOf(m).t+' · '+rateOf(m).p+' %':'×'+m.visits)+' · '+fmt(m.found)}));
     r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);centerOn(curM());};ls.appendChild(r);});
   
   renderExport();renderLevels();
@@ -476,7 +490,12 @@ function renderEditor(){
   ${SUBS[m.cat]?`<label class="f e-sub">Type<div class="chips" id="f-subs"></div></label>`:''}
   <label class="f e-danger">Danger<div class="danger" id="f-danger"></div></label>
   <label class="f e-note">Notes<textarea id="f-note" placeholder="Ce que tu as trouvé, comment y accéder, à quelle heure…"></textarea></label>
-  <div class="counter e-count"><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
+  ${RATE[m.cat]?`<div class="rate e-count">
+    <div class="rate-head"><span class="eyebrow">Taux</span><b id="f-rate"></b></div>
+    <div class="rate-row"><span>${RATE[m.cat][0]}</span><button class="btn sq" data-k="hit" data-d="-1" aria-label="Retirer">−</button><b data-v="hit"></b><button class="btn sq ok" data-k="hit" data-d="1" aria-label="Ajouter">+</button></div>
+    <div class="rate-row"><span>${RATE[m.cat][1]}</span><button class="btn sq" data-k="miss" data-d="-1" aria-label="Retirer">−</button><b data-v="miss"></b><button class="btn sq ko" data-k="miss" data-d="1" aria-label="Ajouter">+</button></div>
+  </div>`:''}
+  <div class="counter e-count"${RATE[m.cat]?' hidden':''}><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
   <div class="meta e-meta"><span>Découvert le ${fmt(m.found)}</span><span>${'ABCDEFGHIJ'[Math.min(9,Math.floor(m.x*10))]}${Math.min(10,Math.floor(m.y*10)+1)} · ${(m.x*100).toFixed(1)} / ${(m.y*100).toFixed(1)}</span></div>
   <button class="del" id="f-del">Supprimer le repère</button>`;
   const ti=ed.querySelector('#f-title'),no=ed.querySelector('#f-note');ti.value=m.title;no.value=m.note;
@@ -493,6 +512,12 @@ function renderEditor(){
   const dg=ed.querySelector('#f-danger');['FAIBLE','MOYEN','ÉLEVÉ'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
     b.onclick=()=>{m.danger=i+1;persist(m);renderEditor();};dg.appendChild(b);});
   ed.querySelector('#f-visits').textContent=m.visits;
+  if(RATE[m.cat]){
+    if(m.hit==null){m.hit=m.visits||0;m.miss=0;}
+    const r=rateOf(m);ed.querySelector('#f-rate').textContent=r?r.h+' / '+r.t+' · '+r.p+' %':'—';
+    ed.querySelectorAll('[data-v]').forEach(b=>b.textContent=m[b.dataset.v]||0);
+    ed.querySelectorAll('.rate [data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;m[k]=Math.max(0,(m[k]||0)+Number(b.dataset.d));m.visits=(m.hit||0)+(m.miss||0);persist(m);renderPins();renderPanel();});
+  }
   ed.querySelector('#f-plus').onclick=()=>{m.visits++;persist(m);renderPanel();};
   ed.querySelector('#f-minus').onclick=()=>{m.visits=Math.max(0,m.visits-1);persist(m);renderPanel();};
   const del=ed.querySelector('#f-del');
@@ -518,7 +543,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v15';
+const APP_VERSION='v16';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
