@@ -1,6 +1,6 @@
 // Hors ligne + mises à jour : la page est prise sur le réseau quand il y en a, sinon dans le cache.
-const VERSION = 'carnet-v8';
-const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
+const VERSION = 'carnet-v9';
+const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './avatar.jpg'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });

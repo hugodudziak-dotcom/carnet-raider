@@ -42,6 +42,9 @@ button{cursor:pointer}
 header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 24px}
 .brand{font-family:var(--f-head);font-weight:700;font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding-block:14px}
 .brand small{display:none}
+.raider{order:3;display:flex;align-items:center;gap:10px;padding-block:8px}
+.raider img{width:32px;height:32px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1.5px var(--ink)}
+.raider span{font-family:var(--f-head);font-weight:600;font-size:13px;letter-spacing:.04em}
 .tabs{display:flex;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none}
 .tab{background:none;border:0;border-bottom:2px solid transparent;padding:14px 14px 12px;color:var(--dim);white-space:nowrap;font-family:var(--f-head);font-weight:600;text-transform:uppercase;letter-spacing:.1em;font-size:12px}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
@@ -142,6 +145,7 @@ textarea{min-height:86px;resize:vertical;line-height:1.45}
 <div class="app">
   <header>
     <div class="brand">Carnet de raider</div>
+    <div class="raider"><img src="avatar.jpg" alt="" width="32" height="32"><span>LilasAndWisteria</span></div>
     <nav class="tabs" id="tabs" role="tablist" aria-label="Cartes"></nav>
   </header>
   <div class="main">
@@ -201,7 +205,6 @@ const parentOf=id=>MAPS.find(m=>m.id===id||(m.levels||[]).some(l=>l.id===id));
 const levelOf=id=>{const m=parentOf(id);return m&&m.levels?m.levels.find(l=>l.id===id):null;};
 const CATS={
   hatch:{label:'Trappe raider',code:'TRP',c:'--c-hatch'},
-  quest:{label:'Quête',code:'QST',c:'--c-quest'},
   key:{label:'Porte à clé',code:'CLÉ',c:'--c-key'},
   loot:{label:'Bon butin',code:'BUT',c:'--c-loot'},
   locker:{label:'Casier sécurisé',code:'CAS',c:'--c-locker'},
@@ -213,7 +216,7 @@ const CATS={
   ext:{label:'Extraction',code:'EXT',c:'--c-ext'},
   note:{label:'Note',code:'NOTE',c:'--c-note'}
 };
-const COUNT={ext:'Empruntée',hatch:'Empruntée',quest:'Visité',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',pvp:'Croisé',note:'Vu'};
+const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',pvp:'Croisé',note:'Vu'};
 let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
@@ -223,7 +226,8 @@ let store={};
 ALL.forEach(id=>store[id]={markers:[]});
 let cur='dam', sel=null, placing=false, filters=Object.fromEntries(Object.keys(CATS).map(k=>[k,true]));
 let images={}; let armed=false; let quick=false, query='', hideDone=false, lastExport=null, undo=null, toastT=null;
-let lastCat='quest';try{lastCat=localStorage.getItem('carnet-lastcat')||'quest';}catch(e){}
+let lastCat='loot';try{lastCat=localStorage.getItem('carnet-lastcat')||'loot';}catch(e){}
+if(!CATS[lastCat])lastCat='loot';
 function rememberCat(k){lastCat=k;try{localStorage.setItem('carnet-lastcat',k);}catch(e){}}
 
 /* ---------- sauvegarde locale (IndexedDB sur l'iPad) ---------- */
@@ -252,7 +256,7 @@ async function boot(){
   let data=null;
   try{data=(await all('kv')).markers||null;}catch(e){}
   if(!data){try{data=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
-  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex);});
+  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>CATS[x.cat]?x:{...x,cat:'note'});});
   try{images=await all('maps');}catch(e){}
   try{lastExport=(await all('kv')).lastExport||null;}catch(e){}
   setSave('Enregistré sur l’iPad');
@@ -412,9 +416,6 @@ function renderPanel(fromSync){
     r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:'×'+m.visits+' · '+fmt(m.found)}));
     r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);const s=stage.getBoundingClientRect();view.x=s.width/2-m.x*W*view.s;view.y=s.height/2-m.y*H*view.s;apply();};ls.appendChild(r);});
   
-  // filtre « fait »
-  const hd=document.createElement('button');hd.className='chip';hd.style.setProperty('--c','var(--dim)');hd.setAttribute('aria-pressed',!hideDone);
-  hd.innerHTML='<i></i>';hd.append('Quêtes terminées');hd.onclick=()=>{hideDone=!hideDone;renderPins();renderPanel();};fl.appendChild(hd);
   renderExport();renderLevels();
   // onglets
   document.querySelectorAll('.tab').forEach(t=>{const pm=MAPS.find(x=>x.id===t.dataset.id);const n=(pm.levels?pm.levels.map(l=>l.id):[pm.id]).reduce((a,id)=>a+store[id].markers.length,0);t.querySelector('.n').textContent=n||'';});
@@ -428,7 +429,6 @@ function renderEditor(){
   <div class="chips" id="f-cats"></div>
   <label class="f">Danger<div class="danger" id="f-danger"></div></label>
   <label class="f">Notes<textarea id="f-note" placeholder="Ce que tu as trouvé, comment y accéder, à quelle heure…"></textarea></label>
-  ${m.cat==='quest'?`<button class="toggle" id="f-done" aria-pressed="${!!m.done}">${m.done?'✓ Quête terminée':'Marquer la quête terminée'}</button>`:''}
   <div class="counter"><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
   <div class="meta"><span>Découvert le ${fmt(m.found)}</span><span>${'ABCDEFGHIJ'[Math.min(9,Math.floor(m.x*10))]}${Math.min(10,Math.floor(m.y*10)+1)} · ${(m.x*100).toFixed(1)} / ${(m.y*100).toFixed(1)}</span></div>
   <button class="del" id="f-del">Supprimer le repère</button>`;
@@ -468,7 +468,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v8';
+const APP_VERSION='v9';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
