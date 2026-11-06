@@ -134,12 +134,18 @@ textarea{min-height:86px;resize:vertical;line-height:1.45}
 /* clavier ouvert : le panneau ne garde que l'éditeur, en version compacte, au-dessus du clavier */
 body.kb aside{max-height:var(--kb-h,100%)}
 body.kb aside>.sec:not(#editor),body.kb .foot{display:none}
-body.kb #editor{gap:8px;padding-block:12px}
+body.kb #editor{gap:6px;padding-block:8px;padding-inline:12px}
 body.kb #editor>.eyebrow,body.kb .e-meta,body.kb .del{display:none}
 body.kb .e-title{order:1}body.kb .e-note{order:2}body.kb .e-cats{order:3}body.kb .e-danger{order:4}body.kb .e-count{order:5}
-body.kb .e-note textarea{min-height:64px}
-body.kb .e-cats .chip{min-height:30px;font-size:12.5px;padding:0 8px}
-body.kb .e-count .btn.sq{width:38px;min-height:38px}
+body.kb label.f{gap:3px;font-size:9.5px}
+body.kb input[type=text],body.kb textarea{padding:6px 8px;font-size:16px}
+body.kb .e-note textarea{min-height:44px;height:44px}
+body.kb .e-cats{gap:4px}
+body.kb .e-cats .chip{min-height:26px;font-size:11.5px;padding:0 7px;gap:5px}
+body.kb .e-cats .chip i{width:7px;height:7px}
+body.kb .danger button{height:28px;font-size:10px}
+body.kb .e-count .btn.sq{width:32px;min-height:32px;font-size:16px}
+body.kb .e-count b{font-size:16px}
 @media (max-width:820px){
   body{overflow:auto}
   .app{height:auto;min-height:100%}
@@ -501,7 +507,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v11';
+const APP_VERSION='v12';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
