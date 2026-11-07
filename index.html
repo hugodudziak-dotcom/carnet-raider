@@ -98,6 +98,12 @@ body.kb .drag-hint{display:none}
 .zonehalo{position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:color-mix(in srgb,var(--c-zone) 22%,transparent);border:1.5px dashed var(--c-zone);pointer-events:none}
 .zonehalo.sel{background:color-mix(in srgb,var(--c-zone) 32%,transparent);border-style:solid}
 body.kb .e-size{order:4}
+.pin.typed .dot{width:26px;height:26px;border-radius:0;background:none;box-shadow:none}
+.pin.typed .dot svg{display:block}
+.pin.typed.sel .dot svg polygon{stroke-width:2.6}
+.chip.sub .hex{flex:none;margin-left:-3px}
+.row .code.hexcode{width:18px;height:18px;background:none;border-radius:0}
+.row .code.hexcode svg{display:block}
 .pin.r-mid .dot{opacity:.7}
 .pin.r-low .dot{opacity:.35;box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(236,235,230,.35)}
 .pin.sel .dot{opacity:1}
@@ -252,10 +258,14 @@ const CATS={
   ext:{label:'Extraction',code:'EXT',c:'--c-ext'},
   note:{label:'Note',code:'NOTE',c:'--c-note'}
 };
+// types d'ARC + leur petit badge (abréviation dans un hexagone)
+const ARC_TYPES={'Arc Turbine':'AT','Bastion':'BA','Bombardier':'BO','Comet':'CO','Fireball':'FB','Firefly':'FF','Hornet':'HO','Leaper':'LE','Matriarch':'MA','Pop':'PO','Queen':'QU','Rocketeer':'RO','Sentinel':'SE','Shredder':'SH','Snitch':'SN','Spotter':'SP','Surveyor':'SU','Tick':'TI','Turret':'TR','Wasp':'WA'};
+const ARCS=Object.keys(ARC_TYPES);
+function hexBadge(ab,size){return `<svg class="hex" viewBox="0 0 26 26" width="${size}" height="${size}" aria-hidden="true"><polygon points="13,1.5 23.5,7.25 23.5,18.75 13,24.5 2.5,18.75 2.5,7.25" fill="var(--c)" stroke="var(--ink)" stroke-width="1.6"/><text x="13" y="13.6" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, ui-monospace, monospace" font-size="8.5" font-weight="700" fill="var(--bg)">${ab}</text></svg>`;}
 const SUBS={
   depot:['Dépôt de terrain','Station de ravitaillement'],
   res:['Caisse de terrain','Caisse d’armes','Caisse de munitions','Sac médical','Panier','Autre conteneur','Plantes','Composants','Électronique','Ferraille'],
-  arc:['Volant','Au sol','Tourelle']
+  arc:ARCS,heavy:ARCS
 };
 const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
 // catégories suivies en taux de réussite (présent / absent)
@@ -302,7 +312,7 @@ async function boot(){
   let data=null;
   try{data=(await all('kv')).markers||null;}catch(e){}
   if(!data){try{data=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
-  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>CATS[x.cat]?x:{...x,cat:'note'}).map(x=>RATE[x.cat]&&x.hit==null?{...x,hit:x.visits||0,miss:0}:x);});
+  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>CATS[x.cat]?x:{...x,cat:'note'}).map(x=>x.sub==='Tourelle'?{...x,sub:'Turret'}:x).map(x=>RATE[x.cat]&&x.hit==null?{...x,hit:x.visits||0,miss:0}:x);});
   try{images=await all('maps');}catch(e){}
   try{lastExport=(await all('kv')).lastExport||null;}catch(e){}
   setSave('Enregistré sur l’iPad');
@@ -406,7 +416,10 @@ function renderPins(){
     b.className='pin'+(m.id===sel?' sel':'')+rateClass(m);b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
     b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||subOf(m)||c.label}`);
     const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||c.label;
-    b.append(Object.assign(document.createElement('span'),{className:'dot'}),t);
+    const dot=Object.assign(document.createElement('span'),{className:'dot'});
+    const ab=(m.cat==='arc'||m.cat==='heavy')&&ARC_TYPES[subOf(m)];
+    if(ab){b.classList.add('typed');dot.innerHTML=hexBadge(ab,26);}
+    b.append(dot,t);
     b.addEventListener('pointerdown',e=>{
       e.stopPropagation();if(m.id!==sel)return;
       e.preventDefault();try{b.setPointerCapture(e.pointerId);}catch(_){}
@@ -509,7 +522,8 @@ function renderPanel(fromSync){
   vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',`var(${c.c})`);
     const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||subOf(m)||c.label});
     if(m.title&&subOf(m))t.append(Object.assign(document.createElement('span'),{className:'mp',textContent:subOf(m)}));
-    r.append(Object.assign(document.createElement('span'),{className:'code',textContent:c.code}),t,Object.assign(document.createElement('span'),{className:'d',textContent:(RATE[m.cat]&&rateOf(m)?rateOf(m).h+'/'+rateOf(m).t+' · '+rateOf(m).p+' %':'×'+m.visits)+' · '+fmt(m.found)}));
+    const ab=(m.cat==='arc'||m.cat==='heavy')&&ARC_TYPES[subOf(m)];const code=Object.assign(document.createElement('span'),{className:ab?'code hexcode':'code',textContent:c.code});if(ab)code.innerHTML=hexBadge(ab,18);
+    r.append(code,t,Object.assign(document.createElement('span'),{className:'d',textContent:(RATE[m.cat]&&rateOf(m)?rateOf(m).h+'/'+rateOf(m).t+' · '+rateOf(m).p+' %':'×'+m.visits)+' · '+fmt(m.found)}));
     r.onclick=()=>{if(m._map!==cur)switchMap(m._map);select(m.id);centerOn(curM());};ls.appendChild(r);});
   
   renderExport();renderLevels();
@@ -545,7 +559,7 @@ function renderEditor(){
     b.onclick=()=>{if(m.cat!==k)m.sub='';m.cat=k;rememberCat(k);persist(m);renderPins();renderPanel();};cs.appendChild(b);});
   const ss=ed.querySelector('#f-subs');
   if(ss)SUBS[m.cat].forEach(t=>{const b=document.createElement('button');b.type='button';b.className='chip pick sub';b.style.setProperty('--c',`var(${CATS[m.cat].c})`);
-    b.setAttribute('aria-pressed',m.sub===t);b.textContent=t;b.onclick=()=>{m.sub=m.sub===t?'':t;persist(m);renderPins();renderPanel();};ss.appendChild(b);});
+    b.setAttribute('aria-pressed',m.sub===t);if(ARC_TYPES[t]&&(m.cat==='arc'||m.cat==='heavy'))b.innerHTML=hexBadge(ARC_TYPES[t],18);b.append(t);b.onclick=()=>{m.sub=m.sub===t?'':t;persist(m);renderPins();renderPanel();};ss.appendChild(b);});
   const fd=ed.querySelector('#f-done');if(fd)fd.onclick=()=>{m.done=!m.done;persist(m);renderPins();renderPanel();};
   const fz=ed.querySelector('#f-size');
   if(fz)['PETITE','MOYENNE','GRANDE'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;const on=(m.size||2)===i+1;b.className=on?'on':'';b.style.setProperty('--lv','var(--c-zone)');b.setAttribute('aria-pressed',on);
@@ -584,7 +598,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v20';
+const APP_VERSION='v21';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
