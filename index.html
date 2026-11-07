@@ -223,7 +223,7 @@ const MAPS=[
   {id:'buried',name:'Buried City',fr:'La Ville enfouie'},
   {id:'spaceport',name:'Spaceport',fr:'Le Port spatial'},
   {id:'bluegate',name:'Blue Gate',fr:'La Porte bleue',levels:[{id:'bluegate',name:'Surface'},{id:'bluegate-ss',name:'Sous-sol'}]},
-  {id:'stella',name:'Stella Montis',fr:'Stella Montis'},
+  {id:'stella',name:'Stella Montis',fr:'Stella Montis',levels:[{id:'stella',name:'Niveau 1'},{id:'stella-2',name:'Niveau 2'}]},
   {id:'riven',name:'Riven Tides',fr:'Riven Tides'}
 ];
 const ALL=[];MAPS.forEach(m=>{ALL.push(m.id);(m.levels||[]).forEach(l=>{if(l.id!==m.id)ALL.push(l.id);});});
@@ -543,7 +543,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v17';
+const APP_VERSION='v18';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
