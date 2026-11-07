@@ -75,6 +75,10 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .placewrap{position:relative}
 .placemenu{position:absolute;left:0;bottom:calc(100% + 6px);width:min(360px,calc(100vw - 32px));display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px;background:var(--panel);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:5}
 .pm-item{background:none;border:1px solid transparent;min-height:44px;padding:0 10px;display:flex;align-items:center;gap:9px;text-align:left;font-size:14px}
+.placemenu.sub{max-height:min(70vh,560px);overflow-y:auto}
+.pm-back{grid-column:1/-1;background:none;border:0;border-bottom:1px solid var(--line);min-height:40px;text-align:left;padding:0 10px;font-family:var(--f-head);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.pm-more{margin-left:auto;color:var(--faint);font-size:18px}
+.pm-item .hex{flex:none}
 .pm-item i{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .pm-item:hover,.pm-item:focus-visible{background:var(--panel-2)}
 .pm-item.last{border-color:var(--line)}
@@ -492,13 +496,24 @@ document.getElementById('fitBtn').onclick=fit;
 const placeBtn=document.getElementById('placeBtn');
 const placeMenu=document.getElementById('placeMenu');
 function setPlacing(v){placing=v;closeMenu();placeBtn.setAttribute('aria-pressed',v);placeBtn.textContent=v?'Annuler':'+ Poser un repère';stage.classList.toggle('placing',v);
-  const h=document.getElementById('hint');h.hidden=!v;if(v)h.textContent='TOUCHE LA CARTE · '+CATS[lastCat].label.toUpperCase();}
+  const h=document.getElementById('hint');h.hidden=!v;if(v)h.textContent='TOUCHE LA CARTE · '+(CATS[lastCat].label+(pendingSub?' · '+pendingSub:'')).toUpperCase();}
 function closeMenu(){placeMenu.hidden=true;placeBtn.setAttribute('aria-expanded','false');}
+let pendingSub='';
+function pmItem(label,col,onClick,extra){const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.className='pm-item'+(extra||'');b.style.setProperty('--c',col);b.innerHTML='<i></i>';b.append(label);b.onclick=onClick;placeMenu.appendChild(b);return b;}
 function openMenu(){
-  placeMenu.innerHTML='';
-  Object.entries(CATS).forEach(([k,c])=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.className='pm-item'+(k===lastCat?' last':'');b.style.setProperty('--c',`var(${c.c})`);
-    b.innerHTML='<i></i>';b.append(c.label);b.onclick=()=>{rememberCat(k);setPlacing(true);};placeMenu.appendChild(b);});
+  placeMenu.innerHTML='';placeMenu.classList.remove('sub');
+  Object.entries(CATS).forEach(([k,c])=>{
+    const b=pmItem(c.label,`var(${c.c})`,()=>{if(SUBS[k])openSubMenu(k);else{rememberCat(k);pendingSub='';setPlacing(true);}},k===lastCat?' last':'');
+    if(SUBS[k])b.append(Object.assign(document.createElement('span'),{className:'pm-more',textContent:'›'}));
+  });
   placeMenu.hidden=false;placeBtn.setAttribute('aria-expanded','true');
+}
+function openSubMenu(k){
+  const c=CATS[k];placeMenu.innerHTML='';placeMenu.classList.add('sub');
+  const back=document.createElement('button');back.type='button';back.className='pm-back';back.textContent='‹ '+c.label;back.onclick=openMenu;placeMenu.appendChild(back);
+  pmItem('Sans type',`var(${c.c})`,()=>{rememberCat(k);pendingSub='';setPlacing(true);});
+  SUBS[k].forEach(t=>{const b=pmItem(t,`var(${c.c})`,()=>{rememberCat(k);pendingSub=t;setPlacing(true);});
+    if(k==='arc'&&ARC_TYPES[t]){b.querySelector('i').remove();b.insertAdjacentHTML('afterbegin',hexBadge(ARC_TYPES[t],18));}});
 }
 placeBtn.onclick=()=>{if(placing){setPlacing(false);return;}placeMenu.hidden?openMenu():closeMenu();};
 document.addEventListener('pointerdown',e=>{if(!placeMenu.hidden&&!e.target.closest('.placewrap'))closeMenu();},true);
@@ -509,7 +524,7 @@ document.getElementById('imgInput').addEventListener('change',e=>{const f=e.targ
 
 /* ---------- données ---------- */
 function addMarker(x,y){
-  const m={id:uid(),x,y,cat:lastCat,title:'',note:'',danger:1,visits:1,hit:1,miss:0,found:today(),done:false};
+  const m={id:uid(),x,y,cat:lastCat,sub:pendingSub,title:'',note:'',danger:1,visits:1,hit:1,miss:0,found:today(),done:false};
   store[cur].markers.push(m);persist(m);
   setPlacing(false);select(m.id,true);
 }
@@ -621,7 +636,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v23';
+const APP_VERSION='v24';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
