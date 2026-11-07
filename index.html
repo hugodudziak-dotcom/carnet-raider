@@ -90,6 +90,11 @@ body.kb .e-sub{order:3}body.kb .chip.sub{min-height:26px;font-size:11.5px;paddin
 .rate-row b{font-family:var(--f-mono);font-weight:500;text-align:center;font-variant-numeric:tabular-nums}
 .rate .btn.ok{border-color:var(--c-ext)}.rate .btn.ko{border-color:var(--c-arc)}
 body.kb .rate .btn.sq{width:32px;min-height:32px}
+.pins .pin.sel{touch-action:none;cursor:grab}
+.pin.drag .dot{transform:scale(1.35)}
+.pin.drag .tag{display:none}
+.drag-hint{font-size:12px;color:var(--dim)}
+body.kb .drag-hint{display:none}
 .pin.r-mid .dot{opacity:.7}
 .pin.r-low .dot{opacity:.35;box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(236,235,230,.35)}
 .pin.sel .dot{opacity:1}
@@ -147,7 +152,8 @@ textarea{min-height:86px;resize:vertical;line-height:1.45}
 body.kb aside{max-height:var(--kb-h,100%)}
 body.kb aside>.sec:not(#editor),body.kb .foot{display:none}
 body.kb #editor{gap:6px;padding-block:8px;padding-inline:12px}
-body.kb #editor>.eyebrow,body.kb .e-meta,body.kb .del{display:none}
+body.kb #editor>.eyebrow,body.kb .e-meta{display:none}
+body.kb .del{order:9;min-height:32px}
 body.kb .e-title{order:1}body.kb .e-note{order:2}body.kb .e-cats{order:3}body.kb .e-danger{order:4}body.kb .e-count{order:5}
 body.kb label.f{gap:3px;font-size:9.5px}
 body.kb input[type=text],body.kb textarea{padding:6px 8px;font-size:16px}
@@ -368,9 +374,11 @@ function fitPanel(){
   if(vv){const top=aside.getBoundingClientRect().top;document.body.style.setProperty('--kb-h',Math.max(160,vv.offsetTop+vv.height-top)+'px');}
   const a=document.activeElement;if(a&&a.scrollIntoView)a.scrollIntoView({block:'nearest'});
 }
-document.addEventListener('focusin',()=>{if(editing()){document.body.classList.add('kb');fitPanel();setTimeout(()=>{fitPanel();centerOn(curM());},350);}});
-document.addEventListener('focusout',()=>{setTimeout(()=>{if(!editing()){document.body.classList.remove('kb');document.body.style.removeProperty('--kb-h');}},120);});
-if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(editing()){fitPanel();centerOn(curM());}});
+function kbOpen(){const vv=window.visualViewport;if(!vv)return true;return document.documentElement.clientHeight-vv.height>120;}
+function updKb(){const on=editing()&&kbOpen();document.body.classList.toggle('kb',on);if(on)fitPanel();else document.body.style.removeProperty('--kb-h');}
+document.addEventListener('focusin',()=>{if(editing())setTimeout(()=>{updKb();centerOn(curM());},350);});
+document.addEventListener('focusout',()=>{setTimeout(updKb,120);});
+if(window.visualViewport)visualViewport.addEventListener('resize',()=>{updKb();if(editing())centerOn(curM());});
 function apply(){world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;placePins();}
 function fit(){const r=stage.getBoundingClientRect();const s=Math.min(r.width/W,r.height/H)*.94;fitS=s;view.s=s;view.x=(r.width-W*s)/2;view.y=(r.height-H*s)/2;apply();}
 function zoomAt(px,py,f){const ns=Math.min(Math.max(4,fitS*8),Math.max(fitS*.5,view.s*f));f=ns/view.s;view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s=ns;apply();}
@@ -390,15 +398,34 @@ function renderPins(){
     b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||subOf(m)||c.label}`);
     const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||c.label;
     b.append(Object.assign(document.createElement('span'),{className:'dot'}),t);
-    b.addEventListener('pointerdown',e=>e.stopPropagation());
-    b.addEventListener('click',e=>{e.stopPropagation();select(m.id);});
+    b.addEventListener('pointerdown',e=>{
+      e.stopPropagation();if(m.id!==sel)return;
+      e.preventDefault();try{b.setPointerCapture(e.pointerId);}catch(_){}
+      const r=stage.getBoundingClientRect();
+      drag={m,b,id:e.pointerId,sx:e.clientX,sy:e.clientY,moved:false,ox:e.clientX-(r.left+view.x+m.x*W*view.s),oy:e.clientY-(r.top+view.y+m.y*H*view.s)};
+    });
+    b.addEventListener('pointermove',e=>{
+      if(!drag||drag.b!==b||drag.id!==e.pointerId)return;
+      if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<6)return;
+      drag.moved=true;b.classList.add('drag');
+      const r=stage.getBoundingClientRect();
+      const x=Math.min(1,Math.max(0,((e.clientX-drag.ox-r.left-view.x)/view.s)/W)),y=Math.min(1,Math.max(0,((e.clientY-drag.oy-r.top-view.y)/view.s)/H));
+      m.x=x;m.y=y;b._x=x;b._y=y;placePins();
+    });
+    const endDrag=e=>{
+      if(!drag||drag.b!==b||drag.id!==e.pointerId)return;
+      const was=drag.moved;drag=null;b.classList.remove('drag');
+      if(was){b._nodrag=true;persist(m);renderPanel(true);}
+    };
+    b.addEventListener('pointerup',endDrag);b.addEventListener('pointercancel',endDrag);
+    b.addEventListener('click',e=>{e.stopPropagation();if(b._nodrag){b._nodrag=false;return;}select(m.id);});
     pinsEl.appendChild(b);
   });
   placePins();
 }
 
 /* ---------- gestes ---------- */
-const pts=new Map();let moved=0;
+const pts=new Map();let moved=0,drag=null;
 stage.addEventListener('pointerdown',e=>{if(e.target.closest('.hud,.levels,.emptymap,.toast'))return;stage.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;});
 stage.addEventListener('pointermove',e=>{
   const r=stage.getBoundingClientRect();
@@ -496,6 +523,7 @@ function renderEditor(){
     <div class="rate-row"><span>${RATE[m.cat][1]}</span><button class="btn sq" data-k="miss" data-d="-1" aria-label="Retirer">−</button><b data-v="miss"></b><button class="btn sq ko" data-k="miss" data-d="1" aria-label="Ajouter">+</button></div>
   </div>`:''}
   <div class="counter e-count"${RATE[m.cat]?' hidden':''}><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
+  <div class="drag-hint">Fais glisser le repère sur la carte pour le déplacer.</div>
   <div class="meta e-meta"><span>Découvert le ${fmt(m.found)}</span><span>${'ABCDEFGHIJ'[Math.min(9,Math.floor(m.x*10))]}${Math.min(10,Math.floor(m.y*10)+1)} · ${(m.x*100).toFixed(1)} / ${(m.y*100).toFixed(1)}</span></div>
   <button class="del" id="f-del">Supprimer le repère</button>`;
   const ti=ed.querySelector('#f-title'),no=ed.querySelector('#f-note');ti.value=m.title;no.value=m.note;
@@ -543,7 +571,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v18';
+const APP_VERSION='v19';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
