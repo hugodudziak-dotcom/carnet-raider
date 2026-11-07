@@ -72,6 +72,16 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .btn.primary[aria-pressed="true"]{background:var(--panel);color:var(--ink)}
 .btn.sq{width:44px;padding:0;justify-content:center;font-size:18px;font-family:var(--f-body);font-weight:400}
 .spacer{flex:1}
+.placewrap{position:relative}
+.placemenu{position:absolute;left:0;bottom:calc(100% + 6px);width:min(360px,calc(100vw - 32px));display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px;background:var(--panel);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:5}
+.pm-item{background:none;border:1px solid transparent;min-height:44px;padding:0 10px;display:flex;align-items:center;gap:9px;text-align:left;font-size:14px}
+.pm-item i{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.pm-item:hover,.pm-item:focus-visible{background:var(--panel-2)}
+.pm-item.last{border-color:var(--line)}
+.catsel{position:relative;display:flex;align-items:center}
+.catsel i{position:absolute;left:11px;width:10px;height:10px;border-radius:50%;background:var(--c);pointer-events:none}
+.catsel select{flex:1;appearance:none;-webkit-appearance:none;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238b9097' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--line);color:var(--ink);padding:10px 34px 10px 30px;font-family:var(--f-body);font-size:16px;text-transform:none;letter-spacing:0;border-radius:0}
+body.kb .catsel select{padding:6px 30px 6px 28px}
 .hint{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(26,29,33,.92);border:1px solid var(--line);font-family:var(--f-head);font-weight:600;font-size:11px;letter-spacing:.12em;padding:8px 14px;pointer-events:none;white-space:nowrap}
 .emptymap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;background:rgba(18,20,23,.55);pointer-events:none}
 .emptymap>*{pointer-events:auto}
@@ -200,7 +210,10 @@ body.kb .e-count b{font-size:16px}
       <div class="hint" id="hint" hidden>TOUCHE LA CARTE POUR POSER LE REPÈRE</div>
       <div class="toast" id="toast" hidden><span id="toastText"></span><button id="undoBtn">Annuler</button></div>
       <div class="hud">
-        <button class="btn primary" id="placeBtn" aria-pressed="false">+ Poser un repère</button>
+        <div class="placewrap">
+          <div class="placemenu" id="placeMenu" role="menu" hidden></div>
+          <button class="btn primary" id="placeBtn" aria-pressed="false" aria-haspopup="menu" aria-expanded="false">+ Poser un repère</button>
+        </div>
         <div class="spacer"></div>
         <button class="btn sq" id="zoomOut" aria-label="Dézoomer">−</button>
         <button class="btn sq" id="zoomIn" aria-label="Zoomer">+</button>
@@ -477,8 +490,19 @@ document.getElementById('zoomIn').onclick=()=>{const r=stage.getBoundingClientRe
 document.getElementById('zoomOut').onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(r.width/2,r.height/2,1/1.35);};
 document.getElementById('fitBtn').onclick=fit;
 const placeBtn=document.getElementById('placeBtn');
-function setPlacing(v){placing=v;placeBtn.setAttribute('aria-pressed',v);placeBtn.textContent=v?'Annuler':'+ Poser un repère';stage.classList.toggle('placing',v);document.getElementById('hint').hidden=!v;}
-placeBtn.onclick=()=>setPlacing(!placing);
+const placeMenu=document.getElementById('placeMenu');
+function setPlacing(v){placing=v;closeMenu();placeBtn.setAttribute('aria-pressed',v);placeBtn.textContent=v?'Annuler':'+ Poser un repère';stage.classList.toggle('placing',v);
+  const h=document.getElementById('hint');h.hidden=!v;if(v)h.textContent='TOUCHE LA CARTE · '+CATS[lastCat].label.toUpperCase();}
+function closeMenu(){placeMenu.hidden=true;placeBtn.setAttribute('aria-expanded','false');}
+function openMenu(){
+  placeMenu.innerHTML='';
+  Object.entries(CATS).forEach(([k,c])=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.className='pm-item'+(k===lastCat?' last':'');b.style.setProperty('--c',`var(${c.c})`);
+    b.innerHTML='<i></i>';b.append(c.label);b.onclick=()=>{rememberCat(k);setPlacing(true);};placeMenu.appendChild(b);});
+  placeMenu.hidden=false;placeBtn.setAttribute('aria-expanded','true');
+}
+placeBtn.onclick=()=>{if(placing){setPlacing(false);return;}placeMenu.hidden?openMenu():closeMenu();};
+document.addEventListener('pointerdown',e=>{if(!placeMenu.hidden&&!e.target.closest('.placewrap'))closeMenu();},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMenu();if(placing)setPlacing(false);}});
 
 
 document.getElementById('imgInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)saveImage(f);e.target.value='';});
@@ -535,10 +559,10 @@ function renderEditor(){
   const ed=document.getElementById('editor'),m=curM();ed.hidden=!m;if(!m){ed.innerHTML='';return;}
   ed.innerHTML=`<div class="eyebrow">Repère sélectionné</div>
   <label class="f e-title">Nom<input type="text" id="f-title" placeholder="Ex : coffre derrière le hangar"></label>
-  <div class="chips e-cats" id="f-cats"></div>
+  <label class="f e-cats">Catégorie<span class="catsel" style="--c:var(${CATS[m.cat].c})"><i></i><select id="f-cat"></select></span></label>
   ${SUBS[m.cat]?`<label class="f e-sub">Type<div class="chips" id="f-subs"></div></label>`:''}
   ${m.cat==='zone'?`<label class="f e-size">Taille de la zone<div class="danger" id="f-size"></div></label>`:''}
-  <label class="f e-danger">Danger<div class="danger" id="f-danger"></div></label>
+  ${m.cat!=='arc'?`<label class="f e-danger">Danger<div class="danger" id="f-danger"></div></label>`:''}
   <label class="f e-note">Notes<textarea id="f-note" placeholder="Ce que tu as trouvé, comment y accéder, à quelle heure…"></textarea></label>
   ${RATE[m.cat]?`<div class="rate e-count">
     <div class="rate-head"><span class="eyebrow">Taux</span><b id="f-rate"></b></div>
@@ -553,9 +577,9 @@ function renderEditor(){
   ti.oninput=()=>{m.title=ti.value;persist(m);renderPins();};
   ti.onchange=renderPanel;
   no.oninput=()=>{m.note=no.value;persist(m);};
-  const cs=ed.querySelector('#f-cats');
-  Object.entries(CATS).forEach(([k,c])=>{const b=document.createElement('button');b.className='chip pick';b.style.setProperty('--c',`var(${c.c})`);b.setAttribute('aria-pressed',m.cat===k);b.innerHTML='<i></i>';b.append(c.label);
-    b.onclick=()=>{if(m.cat!==k)m.sub='';m.cat=k;rememberCat(k);persist(m);renderPins();renderPanel();};cs.appendChild(b);});
+  const cs=ed.querySelector('#f-cat');
+  Object.entries(CATS).forEach(([k,c])=>{const o=document.createElement('option');o.value=k;o.textContent=c.label;o.selected=m.cat===k;cs.appendChild(o);});
+  cs.onchange=()=>{const k=cs.value;if(m.cat!==k)m.sub='';m.cat=k;rememberCat(k);persist(m);renderPins();renderPanel();};
   const ss=ed.querySelector('#f-subs');
   if(ss)SUBS[m.cat].forEach(t=>{const b=document.createElement('button');b.type='button';b.className='chip pick sub';b.style.setProperty('--c',`var(${CATS[m.cat].c})`);
     b.setAttribute('aria-pressed',m.sub===t);if(ARC_TYPES[t]&&m.cat==='arc')b.innerHTML=hexBadge(ARC_TYPES[t],18);b.append(t);b.onclick=()=>{m.sub=m.sub===t?'':t;persist(m);renderPins();renderPanel();};ss.appendChild(b);});
@@ -563,7 +587,7 @@ function renderEditor(){
   const fz=ed.querySelector('#f-size');
   if(fz)['PETITE','MOYENNE','GRANDE'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;const on=(m.size||2)===i+1;b.className=on?'on':'';b.style.setProperty('--lv','var(--c-zone)');b.setAttribute('aria-pressed',on);
     b.onclick=()=>{m.size=i+1;persist(m);renderPins();renderEditor();};fz.appendChild(b);});
-  const dg=ed.querySelector('#f-danger');['FAIBLE','MOYEN','ÉLEVÉ'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
+  const dg=ed.querySelector('#f-danger');if(dg)['FAIBLE','MOYEN','ÉLEVÉ'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
     b.onclick=()=>{m.danger=i+1;persist(m);renderEditor();};dg.appendChild(b);});
   ed.querySelector('#f-visits').textContent=m.visits;
   if(RATE[m.cat]){
@@ -597,7 +621,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v22';
+const APP_VERSION='v23';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
