@@ -29,7 +29,7 @@ img{max-width:100%}
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --c-ext:#6fcf6a; --c-hatch:#3fa58f; --c-quest:#5aa9e6; --c-key:#d8d4c8;
   --c-loot:#f2c94c; --c-locker:#c99a3c; --c-depot:#a78bdb; --c-res:#5aa9e6;
-  --c-arc:#e5534b; --c-heavy:#a83a33; --c-pvp:#f08a3c; --c-note:#9aa0a6;
+  --c-arc:#e5534b; --c-heavy:#a83a33; --c-zone:#d6458f; --c-pvp:#f08a3c; --c-note:#9aa0a6;
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -95,6 +95,9 @@ body.kb .rate .btn.sq{width:32px;min-height:32px}
 .pin.drag .tag{display:none}
 .drag-hint{font-size:12px;color:var(--dim)}
 body.kb .drag-hint{display:none}
+.zonehalo{position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:color-mix(in srgb,var(--c-zone) 22%,transparent);border:1.5px dashed var(--c-zone);pointer-events:none}
+.zonehalo.sel{background:color-mix(in srgb,var(--c-zone) 32%,transparent);border-style:solid}
+body.kb .e-size{order:4}
 .pin.r-mid .dot{opacity:.7}
 .pin.r-low .dot{opacity:.35;box-shadow:0 0 0 2px var(--bg),0 0 0 3px rgba(236,235,230,.35)}
 .pin.sel .dot{opacity:1}
@@ -244,6 +247,7 @@ const CATS={
   res:{label:'Ressources',code:'RES',c:'--c-res'},
   arc:{label:'ARC',code:'ARC',c:'--c-arc'},
   heavy:{label:'ARC lourd',code:'BOS',c:'--c-heavy'},
+  zone:{label:'Zone dangereuse',code:'ZON',c:'--c-zone'},
   pvp:{label:'Campeurs',code:'PVP',c:'--c-pvp'},
   ext:{label:'Extraction',code:'EXT',c:'--c-ext'},
   note:{label:'Note',code:'NOTE',c:'--c-note'}
@@ -255,10 +259,10 @@ const SUBS={
 };
 const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
 // catégories suivies en taux de réussite (présent / absent)
-const RATE={res:['Présent','Absent'],loot:['Présent','Absent'],arc:['Croisé','Pas croisé'],heavy:['Croisé','Pas croisé'],pvp:['Croisé','Pas croisé']};
+const RATE={res:['Présent','Absent'],loot:['Présent','Absent'],arc:['Croisé','Pas croisé'],heavy:['Croisé','Pas croisé'],zone:['Dangereux','Calme'],pvp:['Croisé','Pas croisé']};
 function rateOf(m){const h=m.hit||0,n=m.miss||0,t=h+n;return t?{h,n,t,p:Math.round(h/t*100)}:null;}
 function rateClass(m){const r=rateOf(m);if(!RATE[m.cat]||!r||r.t<2)return '';return r.p>=70?' r-high':r.p>=30?' r-mid':' r-low';}
-const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',pvp:'Croisé',note:'Vu'};
+const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',zone:'Traversée',pvp:'Croisé',note:'Vu'};
 let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
@@ -352,7 +356,11 @@ function placeholder(seed){
 const stage=document.getElementById('stage'),world=document.getElementById('world');
 let view={x:0,y:0,s:1};
 const pinsEl=document.getElementById('pins');
-function placePins(){pinsEl.querySelectorAll('.pin').forEach(p=>{p.style.left=(view.x+p._x*W*view.s)+'px';p.style.top=(view.y+p._y*H*view.s)+'px';});}
+const ZSIZE=[0.04,0.08,0.13];
+function placePins(){
+  pinsEl.querySelectorAll('.zonehalo').forEach(z=>{const m=z._m,d=ZSIZE[(m.size||2)-1]*W*view.s*2;z.style.width=z.style.height=d+'px';z.style.left=(view.x+m.x*W*view.s)+'px';z.style.top=(view.y+m.y*H*view.s)+'px';});
+  pinsEl.querySelectorAll('.pin').forEach(p=>{p.style.left=(view.x+p._x*W*view.s)+'px';p.style.top=(view.y+p._y*H*view.s)+'px';});
+}
 /* centre un repère dans la partie de la carte encore visible (clavier compris) */
 function visibleCenter(){
   const r=stage.getBoundingClientRect(),vv=window.visualViewport;
@@ -391,7 +399,8 @@ function renderWorld(){
   else{W=1000;H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(ALL.indexOf(cur)*1.7+.4));renderPins();fit();}
 }
 function renderPins(){
-  pinsEl.querySelectorAll('.pin').forEach(p=>p.remove());
+  pinsEl.querySelectorAll('.pin,.zonehalo').forEach(p=>p.remove());
+  store[cur].markers.forEach(m=>{if(m.cat!=='zone'||!filters.zone)return;const z=document.createElement('div');z.className='zonehalo'+(m.id===sel?' sel':'');z._m=m;pinsEl.appendChild(z);});
   store[cur].markers.forEach(m=>{
     const c=CATS[m.cat];const b=document.createElement('button');
     b.className='pin'+(m.id===sel?' sel':'')+rateClass(m);b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
@@ -515,6 +524,7 @@ function renderEditor(){
   <label class="f e-title">Nom<input type="text" id="f-title" placeholder="Ex : coffre derrière le hangar"></label>
   <div class="chips e-cats" id="f-cats"></div>
   ${SUBS[m.cat]?`<label class="f e-sub">Type<div class="chips" id="f-subs"></div></label>`:''}
+  ${m.cat==='zone'?`<label class="f e-size">Taille de la zone<div class="danger" id="f-size"></div></label>`:''}
   <label class="f e-danger">Danger<div class="danger" id="f-danger"></div></label>
   <label class="f e-note">Notes<textarea id="f-note" placeholder="Ce que tu as trouvé, comment y accéder, à quelle heure…"></textarea></label>
   ${RATE[m.cat]?`<div class="rate e-count">
@@ -537,6 +547,9 @@ function renderEditor(){
   if(ss)SUBS[m.cat].forEach(t=>{const b=document.createElement('button');b.type='button';b.className='chip pick sub';b.style.setProperty('--c',`var(${CATS[m.cat].c})`);
     b.setAttribute('aria-pressed',m.sub===t);b.textContent=t;b.onclick=()=>{m.sub=m.sub===t?'':t;persist(m);renderPins();renderPanel();};ss.appendChild(b);});
   const fd=ed.querySelector('#f-done');if(fd)fd.onclick=()=>{m.done=!m.done;persist(m);renderPins();renderPanel();};
+  const fz=ed.querySelector('#f-size');
+  if(fz)['PETITE','MOYENNE','GRANDE'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;const on=(m.size||2)===i+1;b.className=on?'on':'';b.style.setProperty('--lv','var(--c-zone)');b.setAttribute('aria-pressed',on);
+    b.onclick=()=>{m.size=i+1;persist(m);renderPins();renderEditor();};fz.appendChild(b);});
   const dg=ed.querySelector('#f-danger');['FAIBLE','MOYEN','ÉLEVÉ'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
     b.onclick=()=>{m.danger=i+1;persist(m);renderEditor();};dg.appendChild(b);});
   ed.querySelector('#f-visits').textContent=m.visits;
@@ -571,7 +584,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v19';
+const APP_VERSION='v20';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
