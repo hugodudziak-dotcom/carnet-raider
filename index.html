@@ -609,7 +609,10 @@ function renderEditor(){
   <div class="meta e-meta"><span>Découvert le ${fmt(m.found)}</span><span>${'ABCDEFGHIJ'[Math.min(9,Math.floor(m.x*10))]}${Math.min(10,Math.floor(m.y*10)+1)} · ${(m.x*100).toFixed(1)} / ${(m.y*100).toFixed(1)}</span></div>
   <button class="del" id="f-del">Supprimer le repère</button>`;
   const ti=ed.querySelector('#f-title'),no=ed.querySelector('#f-note');ti.value=m.title;no.value=m.note;
-  [ti,no].forEach(el=>el.addEventListener('touchend',e=>{if(document.activeElement===el&&!kbOpen()){e.preventDefault();el.blur();el.focus();}}));
+  // filet de sécurité iPad : si le toucher n'a pas ouvert le clavier, on passe par la fenêtre de saisie native
+  [[ti,'title','Nom du repère'],[no,'note','Notes']].forEach(([el,k,lab])=>el.addEventListener('touchend',()=>{if(!TOUCH)return;
+    setTimeout(()=>{const f=document.activeElement===el,kb=kbOpen();setSave('Clavier · focus '+(f?'oui':'non')+' · clavier '+(kb?'oui':'non'));
+      if(f&&kb)return;el.blur();const v=prompt(lab,m[k]||'');if(v!==null){m[k]=v;persist(m);renderPins();renderPanel();}},700);}));
   ti.oninput=()=>{m.title=ti.value;persist(m);renderPins();};
   ti.onchange=renderPanel;
   no.oninput=()=>{m.note=no.value;persist(m);};
@@ -658,7 +661,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v31';
+const APP_VERSION='v32';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
