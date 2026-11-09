@@ -658,7 +658,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v30';
+const APP_VERSION='v31';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
