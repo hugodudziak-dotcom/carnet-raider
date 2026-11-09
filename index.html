@@ -116,7 +116,7 @@ body.kb .e-size{order:4}
 /* noms de zone : étiquette toujours visible, couleur selon le danger */
 .pin.area{padding:4px}
 .pin.area .dot{display:none}
-.pin.area .tag,.pin.area.drag .tag{display:block;position:static;background:rgba(18,20,23,.72);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 70%,transparent);font-family:var(--f-head);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.pin.area .tag,.pin.area.drag .tag{display:block;position:static;background:rgba(18,20,23,.72);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 70%,transparent);font-family:var(--f-head);font-weight:700;font-size:calc(12px*var(--as,1));letter-spacing:.14em;text-transform:uppercase;padding:calc(4px*var(--as,1)) calc(10px*var(--as,1));text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .pin.area.lv2 .tag,.pin.area.lv3 .tag{border-width:1.5px}
 .pin.area.lv3 .tag{background:color-mix(in srgb,var(--c-high) 18%,rgba(18,20,23,.8))}
 .pin.area.sel .tag{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ink)}
@@ -399,6 +399,8 @@ let view={x:0,y:0,s:1};
 const pinsEl=document.getElementById('pins');
 const ZSIZE=[0.04,0.08,0.13];
 function placePins(){
+  // taille des noms de zone : petits quand la carte est dézoomée, grandissent avec le zoom
+  pinsEl.style.setProperty('--as',Math.min(1.15,Math.max(.5,Math.sqrt(view.s/(fitS||1))*.62)).toFixed(3));
   pinsEl.querySelectorAll('.zonehalo').forEach(z=>{const m=z._m,d=ZSIZE[(m.size||2)-1]*W*view.s*2;z.style.width=z.style.height=d+'px';z.style.left=(view.x+m.x*W*view.s)+'px';z.style.top=(view.y+m.y*H*view.s)+'px';});
   pinsEl.querySelectorAll('.pin').forEach(p=>{p.style.left=(view.x+p._x*W*view.s)+'px';p.style.top=(view.y+p._y*H*view.s)+'px';});
 }
@@ -652,7 +654,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v27';
+const APP_VERSION='v28';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
