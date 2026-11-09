@@ -30,6 +30,7 @@ img{max-width:100%}
   --c-ext:#6fcf6a; --c-hatch:#3fa58f; --c-quest:#5aa9e6; --c-key:#d8d4c8;
   --c-loot:#f2c94c; --c-locker:#c99a3c; --c-depot:#a78bdb; --c-res:#5aa9e6;
   --c-arc:#e5534b; --c-heavy:#a83a33; --c-zone:#d6458f; --c-pvp:#f08a3c; --c-note:#9aa0a6;
+  --c-area:#ecebe6; --c-mid:#f08a3c; --c-high:#e5534b;
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -112,6 +113,14 @@ body.kb .drag-hint{display:none}
 .zonehalo{position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:color-mix(in srgb,var(--c-zone) 22%,transparent);border:1.5px dashed var(--c-zone);pointer-events:none}
 .zonehalo.sel{background:color-mix(in srgb,var(--c-zone) 32%,transparent);border-style:solid}
 body.kb .e-size{order:4}
+/* noms de zone : étiquette toujours visible, couleur selon le danger */
+.pin.area{padding:4px}
+.pin.area .dot{display:none}
+.pin.area .tag,.pin.area.drag .tag{display:block;position:static;background:rgba(18,20,23,.72);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 70%,transparent);font-family:var(--f-head);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.pin.area.lv2 .tag,.pin.area.lv3 .tag{border-width:1.5px}
+.pin.area.lv3 .tag{background:color-mix(in srgb,var(--c-high) 18%,rgba(18,20,23,.8))}
+.pin.area.sel .tag{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ink)}
+.pin.area.drag .tag{transform:scale(1.08)}
 .pin.typed .dot{width:26px;height:26px;border-radius:0;background:none;box-shadow:none}
 .pin.typed .dot svg{display:block}
 .pin.typed.sel .dot svg polygon{stroke-width:2.6}
@@ -269,6 +278,7 @@ const CATS={
   depot:{label:'Dépôt de terrain',code:'DEP',c:'--c-depot'},
   res:{label:'Ressources',code:'RES',c:'--c-res'},
   arc:{label:'ARC',code:'ARC',c:'--c-arc'},
+  area:{label:'Nom de zone',code:'NOM',c:'--c-area'},
   zone:{label:'Zone dangereuse',code:'ZON',c:'--c-zone'},
   pvp:{label:'Campeurs',code:'PVP',c:'--c-pvp'},
   ext:{label:'Extraction',code:'EXT',c:'--c-ext'},
@@ -289,6 +299,9 @@ const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
 const RATE={res:['Présent','Absent'],loot:['Présent','Absent'],arc:['Croisé','Pas croisé'],heavy:['Croisé','Pas croisé'],zone:['Dangereux','Calme'],pvp:['Croisé','Pas croisé']};
 function rateOf(m){const h=m.hit||0,n=m.miss||0,t=h+n;return t?{h,n,t,p:Math.round(h/t*100)}:null;}
 function rateClass(m){const r=rateOf(m);if(!RATE[m.cat]||!r||r.t<2)return '';return r.p>=70?' r-high':r.p>=30?' r-mid':' r-low';}
+// couleur d'un repère : pour les noms de zone, elle suit le danger (neutre / orange / rouge)
+const AREA_COL=['var(--c-area)','var(--c-mid)','var(--c-high)'];
+const colOf=m=>m.cat==='area'?AREA_COL[Math.min(3,Math.max(1,m.danger||1))-1]:`var(${CATS[m.cat].c})`;
 const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',zone:'Traversée',pvp:'Croisé',note:'Vu'};
 let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
@@ -430,9 +443,9 @@ function renderPins(){
   store[cur].markers.forEach(m=>{if(m.cat!=='zone'||!filters.zone)return;const z=document.createElement('div');z.className='zonehalo'+(m.id===sel?' sel':'');z._m=m;pinsEl.appendChild(z);});
   store[cur].markers.forEach(m=>{
     const c=CATS[m.cat];const b=document.createElement('button');
-    b.className='pin'+(m.id===sel?' sel':'')+rateClass(m);b._x=m.x;b._y=m.y;b.style.setProperty('--c',`var(${c.c})`);
+    b.className='pin'+(m.id===sel?' sel':'')+rateClass(m)+(m.cat==='area'?' area lv'+(m.danger||1):'');b._x=m.x;b._y=m.y;b.style.setProperty('--c',colOf(m));
     b.hidden=!filters[m.cat]||(hideDone&&m.done&&m.cat==='quest'&&m.id!==sel);b.setAttribute('aria-label',`${c.label} : ${m.title||subOf(m)||c.label}`);
-    const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||c.label;
+    const t=document.createElement('span');t.className='tag';t.textContent=m.title||subOf(m)||(m.cat==='area'?'Zone sans nom':c.label);
     const dot=Object.assign(document.createElement('span'),{className:'dot'});
     const ab=m.cat==='arc'&&ARC_TYPES[subOf(m)];
     if(ab){b.classList.add('typed');dot.innerHTML=hexBadge(ab,26);}
@@ -558,7 +571,7 @@ function renderPanel(fromSync){
   else vis=ms.filter(m=>filters[m.cat]&&!(hideDone&&m.done&&m.cat==='quest')).map(m=>({...m,_map:cur}));
   vis.sort((a,b)=>(a.done&&a.cat==='quest'?1:0)-(b.done&&b.cat==='quest'?1:0)||b.found.localeCompare(a.found));
   if(!vis.length){ls.innerHTML=q?'<p class="empty">Aucun repère ne correspond.</p>':'<p class="empty">Aucun repère ici pour l’instant. Touche « Poser un repère » puis la carte pour noter ta première trouvaille.</p>';}
-  vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',`var(${c.c})`);
+  vis.forEach(m=>{const c=CATS[m.cat];const r=document.createElement('button');r.className='row'+(m.done&&m.cat==='quest'?' done':'');r.style.setProperty('--c',colOf(m));
     const t=Object.assign(document.createElement('span'),{className:'t',textContent:m.title||subOf(m)||c.label});
     if(m.title&&subOf(m))t.append(Object.assign(document.createElement('span'),{className:'mp',textContent:subOf(m)}));
     const ab=m.cat==='arc'&&ARC_TYPES[subOf(m)];const code=Object.assign(document.createElement('span'),{className:ab?'code hexcode':'code',textContent:c.code});if(ab)code.innerHTML=hexBadge(ab,18);
@@ -574,19 +587,19 @@ function renderPanel(fromSync){
 function renderEditor(){
   const ed=document.getElementById('editor'),m=curM();ed.hidden=!m;if(!m){ed.innerHTML='';return;}
   ed.innerHTML=`<div class="eyebrow">Repère sélectionné</div>
-  <label class="f e-title">Nom<input type="text" id="f-title" placeholder="Ex : coffre derrière le hangar"></label>
+  <label class="f e-title">Nom<input type="text" id="f-title" placeholder="${m.cat==='area'?'Ex : Le Labyrinthe':'Ex : coffre derrière le hangar'}"></label>
   <label class="f e-cats">Catégorie<span class="catsel" style="--c:var(${CATS[m.cat].c})"><i></i><select id="f-cat"></select></span></label>
   ${SUBS[m.cat]?`<label class="f e-sub">Type<div class="chips" id="f-subs"></div></label>`:''}
   ${m.cat==='zone'?`<label class="f e-size">Taille de la zone<div class="danger" id="f-size"></div></label>`:''}
-  ${m.cat!=='arc'?`<label class="f e-danger">Danger<div class="danger" id="f-danger"></div></label>`:''}
+  ${m.cat!=='arc'?`<label class="f e-danger">${m.cat==='area'?'Niveau de danger':'Danger'}<div class="danger" id="f-danger"></div></label>`:''}
   <label class="f e-note">Notes<textarea id="f-note" placeholder="Ce que tu as trouvé, comment y accéder, à quelle heure…"></textarea></label>
   ${RATE[m.cat]?`<div class="rate e-count">
     <div class="rate-head"><span class="eyebrow">Taux</span><b id="f-rate"></b></div>
     <div class="rate-row"><span>${RATE[m.cat][0]}</span><button class="btn sq" data-k="hit" data-d="-1" aria-label="Retirer">−</button><b data-v="hit"></b><button class="btn sq ok" data-k="hit" data-d="1" aria-label="Ajouter">+</button></div>
     <div class="rate-row"><span>${RATE[m.cat][1]}</span><button class="btn sq" data-k="miss" data-d="-1" aria-label="Retirer">−</button><b data-v="miss"></b><button class="btn sq ko" data-k="miss" data-d="1" aria-label="Ajouter">+</button></div>
   </div>`:''}
-  <div class="counter e-count"${RATE[m.cat]?' hidden':''}><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
-  <div class="drag-hint">Fais glisser le repère sur la carte pour le déplacer.</div>
+  <div class="counter e-count"${RATE[m.cat]||m.cat==='area'?' hidden':''}><span class="eyebrow" style="flex:1">${COUNT[m.cat]||'Vu'}</span><button class="btn sq" id="f-minus" aria-label="Retirer un passage">−</button><b id="f-visits"></b><button class="btn sq" id="f-plus" aria-label="Ajouter un passage">+</button></div>
+  <div class="drag-hint">Fais glisser ${m.cat==='area'?'le nom':'le repère'} sur la carte pour le déplacer.</div>
   <div class="meta e-meta"><span>Découvert le ${fmt(m.found)}</span><span>${'ABCDEFGHIJ'[Math.min(9,Math.floor(m.x*10))]}${Math.min(10,Math.floor(m.y*10)+1)} · ${(m.x*100).toFixed(1)} / ${(m.y*100).toFixed(1)}</span></div>
   <button class="del" id="f-del">Supprimer le repère</button>`;
   const ti=ed.querySelector('#f-title'),no=ed.querySelector('#f-note');ti.value=m.title;no.value=m.note;
@@ -603,8 +616,9 @@ function renderEditor(){
   const fz=ed.querySelector('#f-size');
   if(fz)['PETITE','MOYENNE','GRANDE'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;const on=(m.size||2)===i+1;b.className=on?'on':'';b.style.setProperty('--lv','var(--c-zone)');b.setAttribute('aria-pressed',on);
     b.onclick=()=>{m.size=i+1;persist(m);renderPins();renderEditor();};fz.appendChild(b);});
-  const dg=ed.querySelector('#f-danger');if(dg)['FAIBLE','MOYEN','ÉLEVÉ'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
-    b.onclick=()=>{m.danger=i+1;persist(m);renderEditor();};dg.appendChild(b);});
+  const isArea=m.cat==='area';
+  const dg=ed.querySelector('#f-danger');if(dg)(isArea?['NEUTRE','MOYEN','ÉLEVÉ']:['FAIBLE','MOYEN','ÉLEVÉ']).forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className=m.danger===i+1?'on':'';b.style.setProperty('--lv',isArea?AREA_COL[i]:['var(--c-ext)','var(--c-loot)','var(--c-arc)'][i]);b.setAttribute('aria-pressed',m.danger===i+1);
+    b.onclick=()=>{m.danger=i+1;persist(m);if(isArea){renderPins();renderPanel();}else renderEditor();};dg.appendChild(b);});
   ed.querySelector('#f-visits').textContent=m.visits;
   if(RATE[m.cat]){
     if(m.hit==null){m.hit=m.visits||0;m.miss=0;}
@@ -637,7 +651,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v25';
+const APP_VERSION='v26';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
