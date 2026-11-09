@@ -551,7 +551,8 @@ function showToast(text,undoFn){
 }
 document.getElementById('undoBtn').onclick=()=>{if(undo)undo();undo=null;clearTimeout(toastT);document.getElementById('toast').hidden=true;};
 function curM(){return store[cur].markers.find(m=>m.id===sel);}
-function select(id,focus){sel=id;armed=false;renderPins();renderPanel();if(focus){const t=document.getElementById('f-title');if(t)t.focus();}}
+const TOUCH=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;
+function select(id,focus){sel=id;armed=false;renderPins();renderPanel();if(focus&&!TOUCH){const t=document.getElementById('f-title');if(t)t.focus();}}
 
 function renderPanel(fromSync){
   const map=parentOf(cur),lv=levelOf(cur),ms=store[cur].markers;
@@ -606,6 +607,7 @@ function renderEditor(){
   <div class="meta e-meta"><span>Découvert le ${fmt(m.found)}</span><span>${'ABCDEFGHIJ'[Math.min(9,Math.floor(m.x*10))]}${Math.min(10,Math.floor(m.y*10)+1)} · ${(m.x*100).toFixed(1)} / ${(m.y*100).toFixed(1)}</span></div>
   <button class="del" id="f-del">Supprimer le repère</button>`;
   const ti=ed.querySelector('#f-title'),no=ed.querySelector('#f-note');ti.value=m.title;no.value=m.note;
+  [ti,no].forEach(el=>el.addEventListener('touchend',e=>{if(document.activeElement===el&&!kbOpen()){e.preventDefault();el.blur();el.focus();}}));
   ti.oninput=()=>{m.title=ti.value;persist(m);renderPins();};
   ti.onchange=renderPanel;
   no.oninput=()=>{m.note=no.value;persist(m);};
@@ -654,7 +656,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v28';
+const APP_VERSION='v29';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
