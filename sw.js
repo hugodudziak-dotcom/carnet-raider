@@ -1,5 +1,5 @@
 // Hors ligne + mises à jour : la page est prise sur le réseau quand il y en a, sinon dans le cache.
-const VERSION = 'carnet-v33';
+const VERSION = 'carnet-v34';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './avatar.jpg'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, {cache: 'reload'})))).then(() => self.skipWaiting()));
@@ -14,10 +14,12 @@ self.addEventListener('fetch', e => {
   if (isPage) {
     // réseau d'abord : la dernière version s'affiche dès qu'il y a internet
     // petit paramètre unique pour passer outre le cache de GitHub (sinon jusqu'à 10 min de retard)
-    const fresh = new URL('./index.html', self.registration.scope); fresh.searchParams.set('t', Date.now());
+    const fresh = new URL(req.url); fresh.searchParams.set('t', Date.now());
+    const isMain = fresh.pathname.endsWith('/') || fresh.pathname.endsWith('/index.html') && !fresh.pathname.includes('/test/');
     e.respondWith(fetch(fresh, {cache: 'no-store'}).then(res => {
-      const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return res;
-    }).catch(() => caches.match('./index.html')));
+      if (isMain) { const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); }
+      return res;
+    }).catch(() => isMain ? caches.match('./index.html') : Response.error()));
     return;
   }
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {

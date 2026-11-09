@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Test clavier</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;padding:calc(20px + env(safe-area-inset-top,0px)) 20px 40px;background:#121417;color:#ecebe6;font:16px/1.4 system-ui,sans-serif}
+h1{font-size:18px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 6px}
+p{color:#8b9097;margin:0 0 18px;font-size:14px}
+.t{border:1px solid #2e3339;padding:14px;margin-bottom:12px}
+.t b{display:block;margin-bottom:8px;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+input,textarea{width:100%;box-sizing:border-box;background:#1a1d21;border:1px solid #2e3339;color:#ecebe6;padding:10px;font-size:16px}
+a.go{display:block;background:#ecebe6;color:#121417;text-decoration:none;font-weight:600;padding:12px 14px;margin-bottom:8px}
+a.go span{font-weight:400;color:#5d636a;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Test clavier</h1>
+<p>Touche chaque champ avec le doigt et note si le clavier apparaît. Les versions de test ont leur propre mémoire vide : tes vrais repères ne risquent rien.</p>
+
+<div class="t"><b>Test 1 · champ tout simple</b><input type="text" placeholder="Touche ici"></div>
+<div class="t"><b>Test 2 · zone de notes</b><textarea placeholder="Touche ici"></textarea></div>
+
+<a class="go" href="v18.html">Test 3 · version 18 <span>(avant le déplacement au doigt)</span></a>
+<a class="go" href="v25.html">Test 4 · version 25 <span>(hier soir)</span></a>
+<a class="go" href="../">← Retour à l’appli <span>(version actuelle)</span></a>
+</body>
+</html>

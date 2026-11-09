@@ -255,7 +255,7 @@ body.kb .e-count b{font-size:16px}
         <input type="text" class="search" id="search" placeholder="Rechercher sur cette carte" autocomplete="off">
         <div class="list" id="list"></div>
       </div>
-      <div class="foot"><span><span id="saveState">—</span><br><span id="lastExp"></span><br><span id="appVer"></span></span><span class="io"><button class="linkbtn" id="expBtn">Exporter</button> · <label class="linkbtn" for="impInput" style="cursor:pointer">Importer</label><input type="file" id="impInput" accept="application/json,.json" hidden></span></div>
+      <div class="foot"><span><span id="saveState">—</span><br><span id="lastExp"></span><br><span id="appVer"></span></span><span class="io"><a class="linkbtn" href="test/">Test clavier</a> · <button class="linkbtn" id="expBtn">Exporter</button> · <label class="linkbtn" for="impInput" style="cursor:pointer">Importer</label><input type="file" id="impInput" accept="application/json,.json" hidden></span></div>
     </aside>
   </div>
 </div>
@@ -656,7 +656,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v33';
+const APP_VERSION='v34';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
