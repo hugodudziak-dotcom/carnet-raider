@@ -288,7 +288,7 @@ const CATS={
   note:{label:'Note',code:'NOTE',c:'--c-note'}
 };
 // types d'ARC + leur petit badge (abréviation dans un hexagone)
-const ARC_TYPES={'Arc Turbine':'AT','Artificier':'AR','Bastion':'BA','Bolide':'BL','Bombardier':'BO','Bondisseur':'BD','Comet':'CO','Déchiqueteuse':'DE','Firefly':'FF','Frelon':'FR','Guêpe':'GP','Guetteur':'GT','Matriarche':'MA','Mouchard':'MO','Observateur':'OB','Pop':'PO','Reine':'RE','Sentinelle':'SE','Tique':'TI','Tourelle':'TO'};
+const ARC_TYPES={'Arc Turbine':'AT','Artificier':'AR','Bastion':'BA','Bolide':'BL','Bombardier':'BO','Bondisseur':'BD','Brute':'BR','Comet':'CO','Déchiqueteuse':'DE','Firefly':'FF','Frelon':'FR','Guêpe':'GP','Guetteur':'GT','Matriarche':'MA','Mouchard':'MO','Observateur':'OB','Pop':'PO','Reine':'RE','Sentinelle':'SE','Tique':'TI','Tourelle':'TO'};
 const ARC_EN_FR={'Rocketeer':'Artificier','Fireball':'Bolide','Leaper':'Bondisseur','Shredder':'Déchiqueteuse','Hornet':'Frelon','Wasp':'Guêpe','Surveyor':'Guetteur','Matriarch':'Matriarche','Snitch':'Mouchard','Spotter':'Observateur','Queen':'Reine','Sentinel':'Sentinelle','Tick':'Tique','Turret':'Tourelle'};
 const ARCS=Object.keys(ARC_TYPES);
 function hexBadge(ab,size){return `<svg class="hex" viewBox="0 0 26 26" width="${size}" height="${size}" aria-hidden="true"><polygon points="13,1.5 23.5,7.25 23.5,18.75 13,24.5 2.5,18.75 2.5,7.25" fill="var(--c)" stroke="var(--ink)" stroke-width="1.6"/><text x="13" y="13.6" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, ui-monospace, monospace" font-size="8.5" font-weight="700" fill="var(--bg)">${ab}</text></svg>`;}
@@ -656,7 +656,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v35';
+const APP_VERSION='v36';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
