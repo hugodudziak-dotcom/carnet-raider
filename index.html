@@ -265,7 +265,8 @@ const MAPS=[
   {id:'spaceport',name:'Spaceport',fr:'Le Port spatial'},
   {id:'bluegate',name:'Blue Gate',fr:'La Porte bleue',levels:[{id:'bluegate',name:'Surface'},{id:'bluegate-ss',name:'Sous-sol'}]},
   {id:'stella',name:'Stella Montis',fr:'Stella Montis',levels:[{id:'stella',name:'Niveau 1'},{id:'stella-2',name:'Niveau 2'}]},
-  {id:'riven',name:'Riven Tides',fr:'Riven Tides'}
+  {id:'riven',name:'Riven Tides',fr:'Riven Tides'},
+  {id:'pendola',name:'Pendola Pass',fr:'Col de Pendola'}
 ];
 const ALL=[];MAPS.forEach(m=>{ALL.push(m.id);(m.levels||[]).forEach(l=>{if(l.id!==m.id)ALL.push(l.id);});});
 const parentOf=id=>MAPS.find(m=>m.id===id||(m.levels||[]).some(l=>l.id===id));
@@ -553,7 +554,7 @@ function select(id,focus){sel=id;armed=false;renderPins();renderPanel();if(focus
 function renderPanel(fromSync){
   const map=parentOf(cur),lv=levelOf(cur),ms=store[cur].markers;
   document.getElementById('mapName').innerHTML='';
-  document.getElementById('mapName').append(map.name,Object.assign(document.createElement('em'),{textContent:(map.fr+(lv?' · '+lv.name:'')).toUpperCase()}));
+  document.getElementById('mapName').append(map.fr,Object.assign(document.createElement('em'),{textContent:((map.name!==map.fr?map.name:'')+(lv?(map.name!==map.fr?' · ':'')+lv.name:'')).toUpperCase()}));
   document.getElementById('stCount').textContent=ms.length;
   document.getElementById('stLast').textContent=ms.length?fmt(ms.map(m=>m.found).sort().pop()):'—';
   // filtres
@@ -635,7 +636,7 @@ function renderEditor(){
 
 /* ---------- onglets ---------- */
 const tabs=document.getElementById('tabs');
-MAPS.forEach(m=>{const b=document.createElement('button');b.className='tab';b.role='tab';b.dataset.id=m.id;b.textContent=m.name;b.append(Object.assign(document.createElement('span'),{className:'n'}));
+MAPS.forEach(m=>{const b=document.createElement('button');b.className='tab';b.role='tab';b.dataset.id=m.id;b.textContent=m.fr;b.append(Object.assign(document.createElement('span'),{className:'n'}));
   b.onclick=()=>switchMap(m.id);tabs.appendChild(b);});
 function switchMap(id){cur=id;sel=null;query='';document.getElementById('search').value='';setPlacing(false);tabs.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.id===parentOf(id).id));renderLevels();renderWorld();renderPanel();}
 document.getElementById('search').addEventListener('input',e=>{query=e.target.value;renderPanel();});
@@ -651,7 +652,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v26';
+const APP_VERSION='v27';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
