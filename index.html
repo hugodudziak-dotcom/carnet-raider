@@ -87,6 +87,7 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding-left:
 .catsel i{position:absolute;left:11px;width:10px;height:10px;border-radius:50%;background:var(--c);pointer-events:none}
 .catsel select{flex:1;appearance:none;-webkit-appearance:none;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238b9097' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--line);color:var(--ink);padding:10px 34px 10px 30px;font-family:var(--f-body);font-size:16px;text-transform:none;letter-spacing:0;border-radius:0}
 body.kb .catsel select{padding:6px 30px 6px 28px}
+#removeMapBtn.arm{border-color:var(--c-arc);color:var(--c-arc)}
 .hint{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(26,29,33,.92);border:1px solid var(--line);font-family:var(--f-head);font-weight:600;font-size:11px;letter-spacing:.12em;padding:8px 14px;pointer-events:none;white-space:nowrap}
 .emptymap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;background:rgba(18,20,23,.55);pointer-events:none}
 .emptymap>*{pointer-events:auto}
@@ -234,6 +235,7 @@ body.kb .e-count b{font-size:16px}
         <button class="btn sq" id="zoomIn" aria-label="Zoomer">+</button>
         <button class="btn" id="fitBtn">Recentrer</button>
         <label class="btn" for="imgInput" style="cursor:pointer">Changer la carte</label>
+        <button class="btn" id="removeMapBtn" hidden>Retirer la carte</button>
         <input type="file" id="imgInput" accept="image/*" hidden>
       </div>
     </div>
@@ -324,6 +326,7 @@ const KEY='carnet-raider-v1';
 let saveT=null;
 function setSave(t){document.getElementById('saveState').textContent=t;}
 function idb(){return new Promise((res,rej)=>{try{const r=indexedDB.open('carnet-raider',2);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('maps'))d.createObjectStore('maps');if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv');};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}catch(e){rej(e);}});}
+async function delKey(storeName,key){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction(storeName,'readwrite');tx.objectStore(storeName).delete(key);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
 async function put(storeName,key,val){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction(storeName,'readwrite');tx.objectStore(storeName).put(val,key);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
 async function all(storeName){const d=await idb();return new Promise(res=>{const out={};const rq=d.transaction(storeName).objectStore(storeName).openCursor();rq.onsuccess=()=>{const c=rq.result;if(c){out[c.key]=c.value;c.continue();}else res(out);};rq.onerror=()=>res(out);});}
 function saveAll(){
@@ -436,10 +439,19 @@ function apply(){world.style.transform=`translate(${view.x}px,${view.y}px) scale
 function fit(){const r=stage.getBoundingClientRect();const s=Math.min(r.width/W,r.height/H)*.94;fitS=s;view.s=s;view.x=(r.width-W*s)/2;view.y=(r.height-H*s)/2;apply();}
 function zoomAt(px,py,f){const ns=Math.min(Math.max(4,fitS*8),Math.max(fitS*.5,view.s*f));f=ns/view.s;view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s=ns;apply();}
 
+let rmT=null;
+document.getElementById('removeMapBtn').onclick=async e=>{
+  const rb=e.currentTarget;
+  if(!rb.classList.contains('arm')){rb.classList.add('arm');rb.textContent='Toucher encore pour retirer';clearTimeout(rmT);rmT=setTimeout(()=>{rb.classList.remove('arm');rb.textContent='Retirer la carte';},4000);return;}
+  clearTimeout(rmT);delete images[cur];
+  try{await delKey('maps',cur);setSave('Carte retirée · tes repères sont gardés');}catch(_){setSave('Échec du retrait de la carte');}
+  renderWorld();
+};
 function renderWorld(){
   world.innerHTML='';
   const src=images[cur];
   document.getElementById('emptyMap').hidden=!!src;
+  const rb=document.getElementById('removeMapBtn');rb.hidden=!src;rb.classList.remove('arm');rb.textContent='Retirer la carte';
   if(src){const im=new Image();im.onload=()=>{W=im.naturalWidth;H=im.naturalHeight;world.style.width=W+'px';world.style.height=H+'px';renderPins();fit();};im.src=src;im.alt='';world.appendChild(im);}
   else{W=1000;H=1000;world.style.width=W+'px';world.style.height=H+'px';world.appendChild(placeholder(ALL.indexOf(cur)*1.7+.4));renderPins();fit();}
 }
@@ -656,7 +668,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v36';
+const APP_VERSION='v37';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
