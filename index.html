@@ -28,7 +28,7 @@ img{max-width:100%}
   --f-body:"Barlow","Helvetica Neue",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --c-ext:#6fcf6a; --c-hatch:#3fa58f; --c-quest:#5aa9e6; --c-key:#d8d4c8;
-  --c-loot:#f2c94c; --c-locker:#c99a3c; --c-depot:#a78bdb; --c-supply:#4fd1e0; --c-res:#5aa9e6;
+  --c-loot:#f2c94c; --c-locker:#c99a3c; --c-depot:#a78bdb; --c-supply:#b7e34a; --c-res:#5aa9e6;
   --c-arc:#e5534b; --c-heavy:#a83a33; --c-zone:#d6458f; --c-pvp:#f08a3c; --c-note:#9aa0a6;
   --c-area:#ecebe6; --c-mid:#f08a3c; --c-high:#e5534b;
   color-scheme:dark;
@@ -670,7 +670,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v38';
+const APP_VERSION='v39';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
