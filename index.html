@@ -28,7 +28,7 @@ img{max-width:100%}
   --f-body:"Barlow","Helvetica Neue",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --c-ext:#6fcf6a; --c-hatch:#3fa58f; --c-quest:#5aa9e6; --c-key:#d8d4c8;
-  --c-loot:#f2c94c; --c-locker:#c99a3c; --c-depot:#a78bdb; --c-res:#5aa9e6;
+  --c-loot:#f2c94c; --c-locker:#c99a3c; --c-depot:#a78bdb; --c-supply:#4fd1e0; --c-res:#5aa9e6;
   --c-arc:#e5534b; --c-heavy:#a83a33; --c-zone:#d6458f; --c-pvp:#f08a3c; --c-note:#9aa0a6;
   --c-area:#ecebe6; --c-mid:#f08a3c; --c-high:#e5534b;
   color-scheme:dark;
@@ -281,6 +281,7 @@ const CATS={
   loot:{label:'Bon butin',code:'BUT',c:'--c-loot'},
   locker:{label:'Casier sécurisé',code:'CAS',c:'--c-locker'},
   depot:{label:'Dépôt de terrain',code:'DEP',c:'--c-depot'},
+  supply:{label:'Station d’approvisionnement',code:'STA',c:'--c-supply'},
   res:{label:'Ressources',code:'RES',c:'--c-res'},
   arc:{label:'ARC',code:'ARC',c:'--c-arc'},
   area:{label:'Nom de zone',code:'NOM',c:'--c-area'},
@@ -295,10 +296,11 @@ const ARC_EN_FR={'Rocketeer':'Artificier','Fireball':'Bolide','Leaper':'Bondisse
 const ARCS=Object.keys(ARC_TYPES);
 function hexBadge(ab,size){return `<svg class="hex" viewBox="0 0 26 26" width="${size}" height="${size}" aria-hidden="true"><polygon points="13,1.5 23.5,7.25 23.5,18.75 13,24.5 2.5,18.75 2.5,7.25" fill="var(--c)" stroke="var(--ink)" stroke-width="1.6"/><text x="13" y="13.6" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, ui-monospace, monospace" font-size="8.5" font-weight="700" fill="var(--bg)">${ab}</text></svg>`;}
 const SUBS={
-  depot:['Dépôt de terrain','Station de ravitaillement'],
   res:['Caisse de terrain','Caisse d’armes','Caisse de munitions','Sac médical','Panier','Autre conteneur','Plantes','Composants','Électronique','Ferraille'],
   arc:ARCS
 };
+// anciennes « Station de ravitaillement » rangées dans Dépôt → catégorie à part
+const migSupply=x=>x.cat==='depot'&&x.sub==='Station de ravitaillement'?{...x,cat:'supply',sub:''}:x;
 const subOf=m=>(SUBS[m.cat]&&SUBS[m.cat].includes(m.sub))?m.sub:'';
 // catégories suivies en taux de réussite (présent / absent)
 const RATE={res:['Présent','Absent'],loot:['Présent','Absent'],arc:['Croisé','Pas croisé'],heavy:['Croisé','Pas croisé'],zone:['Dangereux','Calme'],pvp:['Croisé','Pas croisé']};
@@ -307,7 +309,7 @@ function rateClass(m){const r=rateOf(m);if(!RATE[m.cat]||!r||r.t<2)return '';ret
 // couleur d'un repère : pour les noms de zone, elle suit le danger (neutre / orange / rouge)
 const AREA_COL=['var(--c-area)','var(--c-mid)','var(--c-high)'];
 const colOf=m=>m.cat==='area'?AREA_COL[Math.min(3,Math.max(1,m.danger||1))-1]:`var(${CATS[m.cat].c})`;
-const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',res:'Récolté',arc:'Croisé',heavy:'Croisé',zone:'Traversée',pvp:'Croisé',note:'Vu'};
+const COUNT={ext:'Empruntée',hatch:'Empruntée',key:'Visité',loot:'Fouillé',locker:'Fouillé',depot:'Fouillé',supply:'Utilisée',res:'Récolté',arc:'Croisé',heavy:'Croisé',zone:'Traversée',pvp:'Croisé',note:'Vu'};
 let W=1000, H=1000, fitS=1;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmt=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
@@ -348,7 +350,7 @@ async function boot(){
   let data=null;
   try{data=(await all('kv')).markers||null;}catch(e){}
   if(!data){try{data=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
-  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>x.cat==='heavy'?{...x,cat:'arc'}:x).map(x=>CATS[x.cat]?x:{...x,cat:'note'}).map(x=>ARC_EN_FR[x.sub]?{...x,sub:ARC_EN_FR[x.sub]}:x).map(x=>RATE[x.cat]&&x.hit==null?{...x,hit:x.visits||0,miss:0}:x);});
+  if(data)ALL.forEach(id=>{if(data[id])store[id].markers=(data[id].markers||[]).filter(x=>!x.ex).map(x=>x.cat==='heavy'?{...x,cat:'arc'}:x).map(migSupply).map(x=>CATS[x.cat]?x:{...x,cat:'note'}).map(x=>ARC_EN_FR[x.sub]?{...x,sub:ARC_EN_FR[x.sub]}:x).map(x=>RATE[x.cat]&&x.hit==null?{...x,hit:x.visits||0,miss:0}:x);});
   try{images=await all('maps');}catch(e){}
   try{lastExport=(await all('kv')).lastExport||null;}catch(e){}
   setSave('Enregistré sur l’iPad');
@@ -374,7 +376,7 @@ function importData(file){
   const rd=new FileReader();
   rd.onload=async()=>{
     try{const d=JSON.parse(rd.result);if(d.app!=='carnet-raider')throw 0;
-      ALL.forEach(id=>store[id]={markers:(d.store&&d.store[id]&&d.store[id].markers)||[]});
+      ALL.forEach(id=>store[id]={markers:((d.store&&d.store[id]&&d.store[id].markers)||[]).map(migSupply)});
       images=d.images||{};for(const k in images){try{await put('maps',k,images[k]);}catch(e){}}
       sel=null;saveAll();renderWorld();renderPanel();setSave('Sauvegarde importée');}
     catch(e){setSave('Ce fichier n’est pas une sauvegarde du carnet');}
@@ -668,7 +670,7 @@ document.getElementById('expBtn').onclick=exportData;
 document.getElementById('impInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)importData(f);e.target.value='';});
 renderWorld();renderPanel();
 boot();
-const APP_VERSION='v37';
+const APP_VERSION='v38';
 document.getElementById('appVer').textContent='Version '+APP_VERSION;
 if('serviceWorker' in navigator)addEventListener('load',()=>{
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update();});}).catch(()=>{});
